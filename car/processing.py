@@ -5,6 +5,7 @@ Module with image processing code
 import pickle
 
 import cv2
+import numpy as np
 
 
 class ImagePreprocessor:
@@ -12,10 +13,11 @@ class ImagePreprocessor:
     Class for preprocessing images to make task of lane finding easier
     """
 
-    def __init__(self, calibration_pickle_path):
+    def __init__(self, calibration_pickle_path, parameters):
         """
         Constructor
         :param calibration_pickle_path: path to pickle with camera calibration data
+        :param parameters: dictionary with parameters for various preprocessing stages
         """
 
         with open(calibration_pickle_path, "rb") as file:
@@ -25,6 +27,30 @@ class ImagePreprocessor:
             self.camera_matrix = data['camera_matrix']
             self.distortion_coefficients = data['distortion_coefficients']
 
+        self.parameters = parameters
+
     def get_undistorted_image(self, image):
 
         return cv2.undistort(image, self.camera_matrix, self.distortion_coefficients)
+
+    def get_cropped_image(self, image):
+
+        top_margin = self.parameters['cropping_margins'][0][0]
+        bottom_margin = self.parameters['cropping_margins'][0][1]
+
+        left_margin = self.parameters['cropping_margins'][1][0]
+        right_margin = self.parameters['cropping_margins'][1][1]
+
+        return image[
+               top_margin:image.shape[0] - bottom_margin,
+               left_margin:image.shape[1] - right_margin, :]
+
+    def get_saturation_mask(self, image):
+
+        hls = cv2.cvtColor(image, cv2.COLOR_BGR2HLS)
+        saturation = hls[:, :, 2]
+
+        lower_threshold = self.parameters['saturation_thresholds'][0]
+        upper_threshold = self.parameters['saturation_thresholds'][1]
+
+        return np.uint8((lower_threshold <= saturation) & (saturation < upper_threshold))
