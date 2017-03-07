@@ -81,14 +81,13 @@ def undistort_sample_image(calibration_images_directory, calibration_pickle_path
         data = pickle.load(file)
 
     paths = glob.glob(os.path.join(calibration_images_directory, "*.jpg"))
-
     path = paths[random.randint(0, len(paths) - 1)]
 
     image = cv2.imread(path)
-    logger.info(vlogging.VisualRecord("Image", cv2.pyrDown(image)))
-
     undistorted_image = cv2.undistort(image, data['camera_matrix'], data['distortion_coefficients'])
-    logger.info(vlogging.VisualRecord("Undistorted image", cv2.pyrDown(undistorted_image)))
+
+    logger.info(vlogging.VisualRecord(
+        "Image - undistorted image", [cv2.pyrDown(image), cv2.pyrDown(undistorted_image)]))
 
 
 def main():
