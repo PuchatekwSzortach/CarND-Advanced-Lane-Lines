@@ -46,6 +46,11 @@ class ImagePreprocessor:
                left_margin:image.shape[1] - right_margin, :]
 
     def get_saturation_mask(self, image):
+        """
+        Return masked based on saturation channel of an HSL colorspace image
+        :param image: RGB image
+        :return: saturation mask
+        """
 
         hls = cv2.cvtColor(image, cv2.COLOR_BGR2HLS)
         saturation = hls[:, :, 2]
@@ -53,4 +58,18 @@ class ImagePreprocessor:
         lower_threshold = self.parameters['saturation_thresholds'][0]
         upper_threshold = self.parameters['saturation_thresholds'][1]
 
-        return np.uint8((lower_threshold <= saturation) & (saturation < upper_threshold))
+        return np.uint8((lower_threshold <= saturation) & (saturation <= upper_threshold))
+
+    def get_x_direction_gradient_mask(self, image):
+
+        grayscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        kernel_size = self.parameters['x_gradient_kernel_size']
+
+        x_gradient = np.abs(cv2.Sobel(grayscale, cv2.CV_64F, dx=1, dy=0, ksize=kernel_size))
+        x_gradient = 255 * x_gradient / np.max(x_gradient)
+
+        lower_threshold = self.parameters['x_gradient_thresholds'][0]
+        upper_threshold = self.parameters['x_gradient_thresholds'][1]
+
+        return np.uint8((lower_threshold <= x_gradient) & (x_gradient <= upper_threshold))
