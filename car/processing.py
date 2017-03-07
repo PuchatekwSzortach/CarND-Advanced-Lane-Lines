@@ -73,3 +73,25 @@ class ImagePreprocessor:
         upper_threshold = self.parameters['x_gradient_thresholds'][1]
 
         return np.uint8((lower_threshold <= x_gradient) & (x_gradient <= upper_threshold))
+
+    def get_preprocessed_image(self, image):
+        """
+        Get preprocessed image
+        :param image:
+        :return: binary image
+        """
+
+        undistorted_image = self.get_undistorted_image(image)
+
+        saturation = self.get_saturation_mask(undistorted_image)
+        x_gradient = self.get_x_direction_gradient_mask(undistorted_image)
+
+        binary = saturation | x_gradient
+        return binary
+
+    def get_preprocessed_image_for_video(self, image):
+
+        mask = self.get_preprocessed_image(image)
+
+        return 255 * np.dstack([mask, mask, mask])
+
