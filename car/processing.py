@@ -125,27 +125,6 @@ class ImagePreprocessor:
 
         binary = saturation | x_gradient | (y_gradient & magnitude)
 
-        # binary = cv2.erode(binary, kernel=np.ones((11, 11)))
-
-        return binary
-
-    def get_preprocessed_image_eroded(self, image):
-        """
-        Get preprocessed image
-        :param image:
-        :return: binary image
-        """
-
-        undistorted_image = self.get_undistorted_image(image)
-
-        saturation = self.get_saturation_mask(undistorted_image)
-        x_gradient = self.get_x_direction_gradient_mask(undistorted_image)
-
-        y_gradient = self.get_y_direction_gradient_mask(undistorted_image)
-        magnitude = self.get_gradient_magnitude_mask(undistorted_image)
-
-        binary = saturation | x_gradient | (y_gradient & magnitude)
-
         kernel = np.ones((5, 1))
         binary = cv2.erode(binary, kernel=kernel)
         binary = cv2.dilate(binary, kernel=kernel)

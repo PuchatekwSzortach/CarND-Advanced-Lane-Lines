@@ -222,11 +222,11 @@ def main():
 
     logger = car.utilities.get_logger(car.config.log_path)
     # show_preprocessing_pipeline_for_test_images(logger)
-    show_preprocessing_pipeline_for_additional_test_images(logger)
+    # show_preprocessing_pipeline_for_additional_test_images(logger)
 
     # show_preprocessing_pipeline_for_shadow_images(logger)
 
-    # show_preprocessing_pipeline_for_test_videos()
+    show_preprocessing_pipeline_for_test_videos()
     # get_additional_test_frames(logger)
 
 
