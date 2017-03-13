@@ -60,18 +60,31 @@ def show_preprocessing_pipeline_for_additional_test_images(logger):
         "gradient_magnitude_thresholds": [10, 200],
     }
 
-    preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
+    # preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
+    #
+    # for path in paths:
+    #     image = cv2.imread(path)
+    #
+    #     preprocessed_image = preprocessor.get_preprocessed_image(image)
+    #     erodod_image = preprocessor.get_preprocessed_image_eroded(image)
+    #
+    #     images = [image, 255 * preprocessed_image, 255 * erodod_image]
+    #
+    #     target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
+    #     logger.info(vlogging.VisualRecord("Images", [cv2.resize(image, target_size) for image in images]))
+
+    preprocessor = car.processing.ShadowPreprocessor(car.config.calibration_pickle_path, parameters)
 
     for path in paths:
+
         image = cv2.imread(path)
+        reconstructed = preprocessor.get_image_without_shadows(image)
 
-        preprocessed_image = preprocessor.get_preprocessed_image(image)
-        erodod_image = preprocessor.get_preprocessed_image_eroded(image)
-
-        images = [image, 255 * preprocessed_image, 255 * erodod_image]
+        images = [image, reconstructed]
 
         target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
-        logger.info(vlogging.VisualRecord("Images", [cv2.resize(image, target_size) for image in images]))
+        logger.info(vlogging.VisualRecord("Image, reconstructed image",
+                                          [cv2.resize(image, target_size) for image in images]))
 
 
 def show_preprocessing_pipeline_for_shadow_images(logger):
@@ -87,20 +100,33 @@ def show_preprocessing_pipeline_for_shadow_images(logger):
         "x_gradient_kernel_size": 9,
         "y_gradient_thresholds": [10, 50],
         "y_gradient_kernel_size": 9,
-        "gradient_magnitude_thresholds": [10, 200],
+        "gradient_magnitude_thresholds": [20, 200],
     }
 
-    preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
+    # preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
+    #
+    # for path in paths:
+    #     image = cv2.imread(path)
+    #
+    #     preprocessed_image = preprocessor.get_preprocessed_image(image)
+    #
+    #     images = [image, 255 * preprocessed_image]
+    #
+    #     target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
+    #     logger.info(vlogging.VisualRecord("Image, processed image",
+    #                                       [cv2.resize(image, target_size) for image in images]))
+
+    preprocessor = car.processing.ShadowPreprocessor(car.config.calibration_pickle_path, parameters)
 
     for path in paths:
         image = cv2.imread(path)
 
-        preprocessed_image = preprocessor.get_preprocessed_image(image)
+        preprocessed_image = preprocessor.get_shadow_mask(image)
 
         images = [image, 255 * preprocessed_image]
 
         target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
-        logger.info(vlogging.VisualRecord("Image, processed image",
+        logger.info(vlogging.VisualRecord("Image, mask, blobs",
                                           [cv2.resize(image, target_size) for image in images]))
 
 
@@ -118,13 +144,14 @@ def show_preprocessing_pipeline_for_test_videos():
         "gradient_magnitude_thresholds": [10, 200],
     }
 
-    preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
+    # preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
+    preprocessor = car.processing.ShadowPreprocessor(car.config.calibration_pickle_path, parameters)
 
     for path in paths:
 
         clip = moviepy.editor.VideoFileClip(path)
 
-        processed_clip = clip.fl_image(preprocessor.get_preprocessed_image_for_video)
+        processed_clip = clip.fl_image(preprocessor.get_image_without_shadows)
 
         final_clip = moviepy.editor.clips_array([[clip, processed_clip]])
 
