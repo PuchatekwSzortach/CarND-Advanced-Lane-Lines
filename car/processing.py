@@ -275,11 +275,20 @@ class LaneLineFinder:
 
         histogram = np.sum(sub_image, axis=0).astype(np.int32)
 
-        figure = np.zeros(shape=(int(np.max(histogram)) + 10, len(histogram)))
+        width = self.image.shape[1]
+        half_width = width // 2
+
+        figure = np.zeros(shape=(int(np.max(histogram)) + 10, width, 3))
 
         for x, y in enumerate(histogram):
 
-            figure[figure.shape[0] - y - 1:, x] = 1
+            figure[figure.shape[0] - y - 1:, x, 0] = 1
+
+        left_argmax = np.argmax(histogram[:half_width])
+        right_argmax = np.argmax(histogram[half_width:]) + half_width
+
+        figure[:, left_argmax - 5:left_argmax + 5, 1] = 1
+        figure[:, right_argmax - 5:right_argmax + 5, 1] = 1
 
         return figure
 
