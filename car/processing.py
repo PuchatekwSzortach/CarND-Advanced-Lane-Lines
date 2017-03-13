@@ -99,7 +99,7 @@ class ImagePreprocessor:
         x_gradient = 255 * x_gradient / np.max(x_gradient)
 
         y_gradient = np.abs(cv2.Sobel(grayscale, cv2.CV_64F, dx=0, dy=1, ksize=kernel_size))
-        y_gradient = 255 * x_gradient / np.max(x_gradient)
+        y_gradient = 255 * y_gradient / np.max(y_gradient)
 
         magnitude = np.sqrt((x_gradient ** 2) + (y_gradient ** 2))
 
@@ -137,3 +137,50 @@ class ImagePreprocessor:
 
         return 255 * np.dstack([mask, mask, mask])
 
+
+class ShadowPreprocessor:
+    """
+    Class for removing shadows
+    """
+
+    def __init__(self, calibration_pickle_path, parameters):
+        """
+        Constructor
+        :param calibration_pickle_path: path to pickle with camera calibration data
+        :param parameters: dictionary with parameters for various preprocessing stages
+        """
+
+        with open(calibration_pickle_path, "rb") as file:
+
+            data = pickle.load(file)
+
+            self.camera_matrix = data['camera_matrix']
+            self.distortion_coefficients = data['distortion_coefficients']
+
+        self.parameters = parameters
+
+    def get_undistorted_image(self, image):
+
+        return cv2.undistort(image, self.camera_matrix, self.distortion_coefficients)
+
+    def get_shadow(self, image):
+
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV).astype(np.float32)
+
+        saturation = hsv[:, :, 1]
+        value = hsv[:, :, 2]
+
+        shadow = (saturation + 1) / (value + 1)
+        return shadow
+
+    def get_shadow_mask(self, image):
+
+        shadow = self.get_shadow(image)
+        shadow = shadow.astype(np.uint8)
+        _, mask = cv2.threshold(shadow, thresh=0, maxval=1, type=cv2.THRESH_BINARY)
+
+        kernel = np.ones((5, 5))
+        mask = cv2.erode(mask, kernel=kernel)
+        mask = cv2.dilate(mask, kernel=kernel)
+
+        return mask
