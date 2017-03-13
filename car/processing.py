@@ -279,25 +279,25 @@ class LaneLineFinder:
 
     def get_best_lane_fits(self, x):
 
-        size = 100
-        kernel = np.ones((size, size))
+        height = 100
+        width = 100
+        kernel = np.ones((height, width))
 
-        x = max(x, size)
+        x = max(x, width)
         y = self.image.shape[0]
 
         best_fits = []
 
-        while y > size:
+        while y > height:
 
-            candidate_band = self.image[y - size:y, x - size: x + size]
-
+            candidate_band = self.image[y - height:y, x - width: x + width]
             correletion = scipy.signal.correlate2d(candidate_band, kernel, mode='valid').flatten()
 
-            x = np.argmax(correletion) + x - (size // 2)
+            x = np.argmax(correletion) + x - (width // 2)
 
             best_fits.append([x, y])
 
-            y -= size // 4
+            y -= height // 2
 
         return best_fits
 

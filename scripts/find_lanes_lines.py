@@ -48,10 +48,12 @@ def find_lane_lines_in_test_images(logger):
         mask = preprocessor.get_preprocessed_image(warped)
 
         left_finder = car.processing.LaneLineFinder(mask[:, :mask.shape[1]//2])
+        right_finder = car.processing.LaneLineFinder(mask[:, (mask.shape[1] // 2):])
 
         left_lane_drawing = left_finder.get_lane_drawing()
+        right_lane_drawing = right_finder.get_lane_drawing()
 
-        images = [undistorted_image, warped, 255 * mask, 255 * left_lane_drawing, 255 * left_lane_drawing]
+        images = [undistorted_image, warped, 255 * mask, 255 * left_lane_drawing, 255 * right_lane_drawing]
 
         logger.info(vlogging.VisualRecord("Image, processed",
                                           [cv2.resize(
