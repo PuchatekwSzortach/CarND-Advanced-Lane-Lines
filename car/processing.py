@@ -184,3 +184,55 @@ class ShadowPreprocessor:
         mask = cv2.dilate(mask, kernel=kernel)
 
         return mask
+
+    def get_shadow_blobs(self, image):
+
+        mask = self.get_shadow_mask(image)
+
+        value, data = cv2.connectedComponents(mask)
+
+        blobs = []
+
+        for index in range(1, value + 1):
+
+            if np.sum(data == index) > 5000:
+
+                blob = np.zeros_like(mask)
+                blob[data == index] = 1
+
+                blobs.append(blob)
+
+        return blobs
+
+    def get_image_without_shadows(self, image):
+
+        blobs = self.get_shadow_blobs(image)
+
+        all_shadows_mask = np.zeros(shape=image.shape[:2])
+        all_shadows_mask += np.sum(np.array(blobs), axis=0)
+
+        all_shadows_mask = all_shadows_mask > 0
+
+        no_shadows_mask = 1 - all_shadows_mask
+        reconstructed_image = np.zeros_like(image)
+        reconstructed_image[no_shadows_mask == 1] = image[no_shadows_mask == 1]
+
+        for blob in blobs:
+
+            kernel = np.ones((9, 9))
+            outer_area_mask = cv2.dilate(blob, kernel) - blob
+
+            outer_area_mean = np.mean(image[outer_area_mask == 1])
+            outer_area_std = np.std(image[outer_area_mask == 1])
+
+            shadow_area_mean = np.mean(image[blob == 1])
+            shadow_area_std = np.std(image[blob == 1])
+
+            local_reconstruction = np.zeros_like(image)
+
+            numerator = (image[blob == 1] - shadow_area_mean) * shadow_area_std
+            local_reconstruction[blob == 1] = outer_area_mean + (numerator / outer_area_std)
+
+            reconstructed_image += local_reconstruction
+
+        return reconstructed_image
