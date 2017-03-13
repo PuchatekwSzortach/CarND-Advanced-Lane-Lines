@@ -7,6 +7,7 @@ import pprint
 
 import cv2
 import numpy as np
+import scipy.signal
 
 
 class ImagePreprocessor:
@@ -269,28 +270,52 @@ class LaneLineFinder:
 
         self.image = image
 
-    def get_histogram(self):
+    def get_lane_starting_x(self):
 
-        sub_image = self.image[(self.image.shape[1] // 3):, :]
+        histogram = np.sum(self.image, axis=0).astype(np.int32)
+        peak = np.argmax(histogram)
 
-        histogram = np.sum(sub_image, axis=0).astype(np.int32)
+        return peak
 
-        width = self.image.shape[1]
-        half_width = width // 2
+    def get_best_lane_fits(self, x):
 
-        figure = np.zeros(shape=(int(np.max(histogram)) + 10, width, 3))
+        size = 100
+        kernel = np.ones((size, size))
 
-        for x, y in enumerate(histogram):
+        x = max(x, size)
+        y = self.image.shape[0]
 
-            figure[figure.shape[0] - y - 1:, x, 0] = 1
+        best_fits = []
 
-        left_argmax = np.argmax(histogram[:half_width])
-        right_argmax = np.argmax(histogram[half_width:]) + half_width
+        while y > size:
 
-        figure[:, left_argmax - 5:left_argmax + 5, 1] = 1
-        figure[:, right_argmax - 5:right_argmax + 5, 1] = 1
+            candidate_band = self.image[y - size:y, x - size: x + size]
 
-        return figure
+            correletion = scipy.signal.correlate2d(candidate_band, kernel, mode='valid').flatten()
+
+            x = np.argmax(correletion) + x - (size // 2)
+
+            best_fits.append([x, y])
+
+            y -= size // 4
+
+        return best_fits
+
+    def get_lane_drawing(self):
+
+        x = self.get_lane_starting_x()
+
+        lane_fits = self.get_best_lane_fits(x)
+        empty = np.zeros_like(self.image)
+        empty_two = np.zeros_like(self.image)
+
+        empty[self.image.shape[0] - 100:, x-5:x+5] = 1
+        cv2.polylines(empty_two, np.int32([lane_fits]), isClosed=False, color=1, thickness=4)
+
+        lane_image = np.dstack([self.image, empty, empty_two])
+
+        return lane_image
+
 
 
 
