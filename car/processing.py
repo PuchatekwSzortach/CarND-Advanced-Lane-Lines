@@ -75,6 +75,39 @@ class ImagePreprocessor:
 
         return np.uint8((lower_threshold <= x_gradient) & (x_gradient <= upper_threshold))
 
+    def get_y_direction_gradient_mask(self, image):
+
+        grayscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        kernel_size = self.parameters['x_gradient_kernel_size']
+
+        gradient = np.abs(cv2.Sobel(grayscale, cv2.CV_64F, dx=0, dy=1, ksize=kernel_size))
+        gradient = 255 * gradient / np.max(gradient)
+
+        lower_threshold = self.parameters['y_gradient_thresholds'][0]
+        upper_threshold = self.parameters['y_gradient_thresholds'][1]
+
+        return np.uint8((lower_threshold <= gradient) & (gradient <= upper_threshold))
+
+    def get_gradient_magnitude_mask(self, image):
+
+        grayscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        kernel_size = self.parameters['x_gradient_kernel_size']
+
+        x_gradient = np.abs(cv2.Sobel(grayscale, cv2.CV_64F, dx=1, dy=0, ksize=kernel_size))
+        x_gradient = 255 * x_gradient / np.max(x_gradient)
+
+        y_gradient = np.abs(cv2.Sobel(grayscale, cv2.CV_64F, dx=0, dy=1, ksize=kernel_size))
+        y_gradient = 255 * x_gradient / np.max(x_gradient)
+
+        magnitude = np.sqrt((x_gradient ** 2) + (y_gradient ** 2))
+
+        lower_threshold = self.parameters['gradient_magnitude_thresholds'][0]
+        upper_threshold = self.parameters['gradient_magnitude_thresholds'][1]
+
+        return np.uint8((lower_threshold <= magnitude) & (magnitude <= upper_threshold))
+
     def get_preprocessed_image(self, image):
         """
         Get preprocessed image
@@ -87,7 +120,10 @@ class ImagePreprocessor:
         saturation = self.get_saturation_mask(undistorted_image)
         x_gradient = self.get_x_direction_gradient_mask(undistorted_image)
 
-        binary = saturation | x_gradient
+        y_gradient = self.get_y_direction_gradient_mask(undistorted_image)
+        magnitude = self.get_gradient_magnitude_mask(undistorted_image)
+
+        binary = saturation | x_gradient | (y_gradient & magnitude)
         return binary
 
     def get_preprocessed_image_for_video(self, image):

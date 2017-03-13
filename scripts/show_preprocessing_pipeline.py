@@ -23,7 +23,10 @@ def show_preprocessing_pipeline_for_test_images(logger):
         "cropping_margins": [[350, 50], [100, 100]],
         "saturation_thresholds": [100, 255],
         "x_gradient_thresholds": [30, 255],
-        "x_gradient_kernel_size": 9
+        "x_gradient_kernel_size": 9,
+        "y_gradient_thresholds": [10, 50],
+        "y_gradient_kernel_size": 9,
+        "gradient_magnitude_thresholds": [10, 200],
     }
 
     preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
@@ -51,7 +54,10 @@ def show_preprocessing_pipeline_for_additional_test_images(logger):
         "cropping_margins": [[350, 50], [100, 100]],
         "saturation_thresholds": [100, 255],
         "x_gradient_thresholds": [30, 255],
-        "x_gradient_kernel_size": 9
+        "x_gradient_kernel_size": 9,
+        "y_gradient_thresholds": [10, 50],
+        "y_gradient_kernel_size": 9,
+        "gradient_magnitude_thresholds": [10, 200],
     }
 
     preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
@@ -81,24 +87,23 @@ def show_preprocessing_pipeline_for_shadow_images(logger):
         "cropping_margins": [[350, 50], [100, 100]],
         "saturation_thresholds": [100, 255],
         "x_gradient_thresholds": [30, 255],
-        "x_gradient_kernel_size": 9
+        "x_gradient_kernel_size": 9,
+        "y_gradient_thresholds": [10, 50],
+        "y_gradient_kernel_size": 9,
+        "gradient_magnitude_thresholds": [10, 200],
     }
 
     preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
 
     for path in paths:
         image = cv2.imread(path)
-        undistorted_image = preprocessor.get_undistorted_image(image)
-
-        saturation = preprocessor.get_saturation_mask(undistorted_image)
-        x_gradient = preprocessor.get_x_direction_gradient_mask(undistorted_image)
 
         preprocessed_image = preprocessor.get_preprocessed_image(image)
 
-        images = [image, 255 * saturation, 255 * x_gradient, 255 * preprocessed_image]
+        images = [image, 255 * preprocessed_image]
 
         target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
-        logger.info(vlogging.VisualRecord("Image, saturation, x_gradient, processed",
+        logger.info(vlogging.VisualRecord("Image, processed image",
                                           [cv2.resize(image, target_size) for image in images]))
 
 
@@ -110,7 +115,10 @@ def show_preprocessing_pipeline_for_test_videos():
         "cropping_margins": [[350, 50], [100, 100]],
         "saturation_thresholds": [100, 255],
         "x_gradient_thresholds": [30, 255],
-        "x_gradient_kernel_size": 9
+        "x_gradient_kernel_size": 9,
+        "y_gradient_thresholds": [10, 50],
+        "y_gradient_kernel_size": 9,
+        "gradient_magnitude_thresholds": [10, 200],
     }
 
     preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
@@ -216,8 +224,8 @@ def get_additional_test_frames(logger):
 def main():
 
     logger = car.utilities.get_logger(car.config.log_path)
-    show_preprocessing_pipeline_for_test_images(logger)
-    # show_preprocessing_pipeline_for_additional_test_images(logger)
+    # show_preprocessing_pipeline_for_test_images(logger)
+    show_preprocessing_pipeline_for_additional_test_images(logger)
 
     # show_preprocessing_pipeline_for_shadow_images(logger)
 
