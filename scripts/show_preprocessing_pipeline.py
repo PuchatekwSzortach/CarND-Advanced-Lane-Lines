@@ -64,14 +64,11 @@ def show_preprocessing_pipeline_for_additional_test_images(logger):
 
     for path in paths:
         image = cv2.imread(path)
-        undistorted_image = preprocessor.get_undistorted_image(image)
-
-        saturation = preprocessor.get_saturation_mask(undistorted_image)
-        x_gradient = preprocessor.get_x_direction_gradient_mask(undistorted_image)
 
         preprocessed_image = preprocessor.get_preprocessed_image(image)
+        erodod_image = preprocessor.get_preprocessed_image_eroded(image)
 
-        images = [image, 255 * saturation, 255 * x_gradient, 255 * preprocessed_image]
+        images = [image, 255 * preprocessed_image, 255 * erodod_image]
 
         target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
         logger.info(vlogging.VisualRecord("Images", [cv2.resize(image, target_size) for image in images]))
