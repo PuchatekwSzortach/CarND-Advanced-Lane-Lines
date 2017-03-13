@@ -236,3 +236,27 @@ class ShadowPreprocessor:
             reconstructed_image += local_reconstruction
 
         return reconstructed_image
+
+
+def get_perspective_transformation_source_coordinates(image_shape):
+
+    coordinates = np.array([
+        [100, image_shape[0]],  # left bottom
+        [image_shape[1] - 100, image_shape[0]],  # right bottom
+        [image_shape[1] - 500, 440],  # right top
+        [500, 440],  # left top
+    ])
+
+    return coordinates.astype(np.float32)
+
+
+def get_perspective_transformation_destination_coordinates(image_shape):
+
+    coordinates = np.array([
+        [image_shape[1] // 4, image_shape[0]],  # lower left corner
+        [3 * image_shape[1] // 4, image_shape[0]],  # lower right corner
+        [3 * image_shape[1] // 4, 0],  # upper right corner
+        [image_shape[1] // 4, 0]  # upper left corner
+    ])
+
+    return coordinates.astype(np.float32)
