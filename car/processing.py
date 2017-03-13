@@ -3,6 +3,7 @@ Module with image processing code
 """
 
 import pickle
+import pprint
 
 import cv2
 import numpy as np
@@ -260,3 +261,28 @@ def get_perspective_transformation_destination_coordinates(image_shape):
     ])
 
     return coordinates.astype(np.float32)
+
+
+class LaneLineFinder:
+
+    def __init__(self, image):
+
+        self.image = image
+
+    def get_histogram(self):
+
+        sub_image = self.image[(self.image.shape[1] // 3):, :]
+
+        histogram = np.sum(sub_image, axis=0).astype(np.int32)
+
+        figure = np.zeros(shape=(int(np.max(histogram)) + 10, len(histogram)))
+
+        for x, y in enumerate(histogram):
+
+            figure[figure.shape[0] - y - 1:, x] = 1
+
+        return figure
+
+
+
+

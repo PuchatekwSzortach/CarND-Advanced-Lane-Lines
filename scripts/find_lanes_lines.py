@@ -47,8 +47,11 @@ def find_lane_lines_in_test_images(logger):
 
         mask = preprocessor.get_preprocessed_image(warped)
 
-        images = [undistorted_image, warped, 255 * mask]
+        left_finder = car.processing.LaneLineFinder(mask)
 
+        windowed_image = left_finder.get_histogram()
+
+        images = [undistorted_image, warped, 255 * mask, 255 * windowed_image]
         target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
 
         logger.info(vlogging.VisualRecord("Image, processed",
