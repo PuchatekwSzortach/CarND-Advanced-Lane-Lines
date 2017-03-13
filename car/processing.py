@@ -54,20 +54,12 @@ class ImagePreprocessor:
 
         hls = cv2.cvtColor(image, cv2.COLOR_BGR2HLS).astype(np.float32)
 
-        lumination = hls[:, :, 1]
         saturation = hls[:, :, 2]
 
-        lower_threshold = self.parameters['saturation_thresholds'][0] * (lumination + 10) / 120
+        lower_threshold = self.parameters['saturation_thresholds'][0]
         upper_threshold = self.parameters['saturation_thresholds'][1]
 
-        mask = np.zeros_like(saturation, dtype=np.uint8)
-
-        lumination_threshold = 100
-
-        mask[(lumination > lumination_threshold) & (lower_threshold <= saturation) & (saturation <= upper_threshold)] = 1
-        mask[(lumination < lumination_threshold) & (saturation < 25)] = 1
-
-        return mask
+        return np.uint8((lower_threshold <= saturation) & (saturation <= upper_threshold))
 
     def get_x_direction_gradient_mask(self, image):
 
