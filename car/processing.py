@@ -122,12 +122,12 @@ class ImagePreprocessor:
         saturation = self.get_saturation_mask(undistorted_image)
         x_gradient = self.get_x_direction_gradient_mask(undistorted_image)
 
-        y_gradient = self.get_y_direction_gradient_mask(undistorted_image)
-        magnitude = self.get_gradient_magnitude_mask(undistorted_image)
+        binary = saturation | x_gradient
 
-        binary = saturation | x_gradient | (y_gradient & magnitude)
+        binary[:, :binary.shape[1] // 4] = 0
+        binary[:, 3 * binary.shape[1] // 4:] = 0
 
-        kernel = np.ones((5, 1))
+        kernel = np.ones((11, 3))
         binary = cv2.erode(binary, kernel=kernel)
         binary = cv2.dilate(binary, kernel=kernel)
 
@@ -254,11 +254,18 @@ def get_perspective_transformation_source_coordinates(image_shape):
 
 def get_perspective_transformation_destination_coordinates(image_shape):
 
+    # coordinates = np.array([
+    #     [0, image_shape[0]],  # lower left corner
+    #     [image_shape[1], image_shape[0]],  # lower right corner
+    #     [image_shape[1], 0],  # upper right corner
+    #     [0, 0]  # upper left corner
+    # ])
+
     coordinates = np.array([
-        [0, image_shape[0]],  # lower left corner
-        [image_shape[1], image_shape[0]],  # lower right corner
-        [image_shape[1], 0],  # upper right corner
-        [0, 0]  # upper left corner
+        [400, image_shape[0]],  # lower left corner
+        [image_shape[1] - 400, image_shape[0]],  # lower right corner
+        [image_shape[1] - 400, 0],  # upper right corner
+        [400, 0]  # upper left corner
     ])
 
     return coordinates.astype(np.float32)
@@ -335,37 +342,33 @@ class LaneLineFinder:
 
     def get_lane_drawing(self):
 
-        x = self.get_lane_starting_x()
-
         kernel_width = 100
         kernel_height = 100
         start_x, start_y = self.get_lane_starting_coordinates(kernel_width, kernel_height)
 
-        lane_fits = self.get_best_lane_fits(x)
-
-        lane_polynomial = np.polyfit(lane_fits[:, 1], lane_fits[:, 0], deg=2)
-
+        # lane_polynomial = np.polyfit(lane_fits[:, 1], lane_fits[:, 0], deg=2)
+        #
         empty = np.zeros_like(self.image)
         empty_two = np.zeros_like(self.image)
-
-        # Starting position
-        empty[self.image.shape[0] - 100:, x-5:x+5] = 1
-
+        #
+        # # Starting position
+        # empty[self.image.shape[0] - 100:, x-5:x+5] = 1
+        #
         # Starting coordinates
         empty[
             max(0, start_y - (kernel_height//2)):start_y + (kernel_height//2),
             max(0, start_x - (kernel_width//2)):start_x + (kernel_width//2)] = 1
-
-        # Draw individual detected points
-        cv2.polylines(empty_two, np.int32([lane_fits]), isClosed=False, color=1, thickness=4)
-
-        # Draw polynomial fit
-        arguments = np.linspace(self.image.shape[0], 0)
-        values = (lane_polynomial[0] * (arguments**2)) + (lane_polynomial[1] * arguments) + lane_polynomial[2]
-
-        points = list(zip(values, arguments))
-        cv2.polylines(empty, np.int32([points]), isClosed=False, color=1, thickness=8)
-
+        #
+        # # Draw individual detected points
+        # cv2.polylines(empty_two, np.int32([lane_fits]), isClosed=False, color=1, thickness=4)
+        #
+        # # Draw polynomial fit
+        # arguments = np.linspace(self.image.shape[0], 0)
+        # values = (lane_polynomial[0] * (arguments**2)) + (lane_polynomial[1] * arguments) + lane_polynomial[2]
+        #
+        # points = list(zip(values, arguments))
+        # cv2.polylines(empty, np.int32([points]), isClosed=False, color=1, thickness=8)
+        #
         lane_image = np.dstack([self.image, empty, empty_two])
 
         return lane_image
