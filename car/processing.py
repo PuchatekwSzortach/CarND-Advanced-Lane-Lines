@@ -359,5 +359,34 @@ def get_lane_mask(image, lane_equation, warp_matrix):
     return cv2.warpPerspective(mask, warp_matrix, (mask.shape[1], mask.shape[0]))
 
 
+class SimpleVideoProcessor:
 
+    def __init__(self, preprocessor, source_points, destination_points):
+
+        self.preprocessor = preprocessor
+
+        self.warp_matrix = cv2.getPerspectiveTransform(source_points, destination_points)
+        self.unwarp_matrix = cv2.getPerspectiveTransform(destination_points, source_points)
+
+    def get_image_with_lanes(self, image):
+
+        undistorted_image = self.preprocessor.get_undistorted_image(image)
+        warped = cv2.warpPerspective(undistorted_image, self.warp_matrix, (image.shape[1], image.shape[0]))
+        mask = self.preprocessor.get_preprocessed_image(warped)
+
+        left_finder = LaneLineFinder(mask[:, :mask.shape[1] // 2], offset=0)
+        right_finder = LaneLineFinder(mask[:, (mask.shape[1] // 2):], offset=mask.shape[1] // 2)
+
+        left_lane_equation = left_finder.get_lane_equation()
+        right_lane_equation = right_finder.get_lane_equation()
+
+        left_lane_mask = get_lane_mask(undistorted_image, left_lane_equation, self.unwarp_matrix)
+        right_lane_mask = get_lane_mask(undistorted_image, right_lane_equation, self.unwarp_matrix)
+
+        image_with_lanes = undistorted_image.copy().astype(np.float32)
+
+        image_with_lanes[left_lane_mask == 1] = (0, 0, 255)
+        image_with_lanes[right_lane_mask == 1] = (0, 0, 255)
+
+        return image_with_lanes
 
