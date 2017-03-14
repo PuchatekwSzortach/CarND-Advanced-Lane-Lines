@@ -295,24 +295,22 @@ class LaneLineFinder:
 
     def get_lane_starting_coordinates(self, kernel_width, kernel_height):
 
-        subimage = self.image[(self.image.shape[0] // 2):, :]
-
         # Compute vertical histogram to find x with largest response
-        kernel = np.ones((subimage.shape[0], kernel_width))
+        kernel = np.ones((self.image.shape[0], kernel_width))
 
-        histogram = scipy.signal.convolve2d(subimage, kernel, mode='valid').flatten().astype(np.int32)
+        histogram = scipy.signal.convolve2d(self.image, kernel, mode='valid').flatten().astype(np.int32)
         peak = np.argmax(histogram)
 
         x = peak + (kernel.shape[1] // 2)
 
         # For selected x compute y that has most white pixels
-        column_image = subimage[:, x - (kernel_width//2): x + (kernel_width//2)]
+        column_image = self.image[:, x - (kernel_width//2): x + (kernel_width//2)]
         kernel = np.ones((kernel_height, column_image.shape[1]))
 
         histogram = scipy.signal.convolve2d(column_image, kernel, mode='valid').flatten().astype(np.int32)
         peak = np.argmax(histogram)
 
-        y = peak + (kernel.shape[0] // 2) + subimage.shape[0]
+        y = peak + (kernel.shape[0] // 2)
 
         return x, y
 
@@ -342,7 +340,7 @@ class LaneLineFinder:
 
     def get_lane_drawing(self):
 
-        kernel_width = 100
+        kernel_width = 50
         kernel_height = 100
         start_x, start_y = self.get_lane_starting_coordinates(kernel_width, kernel_height)
 

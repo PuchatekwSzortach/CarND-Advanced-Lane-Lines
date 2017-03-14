@@ -17,8 +17,8 @@ import car.processing
 
 def find_lane_lines_in_test_images(logger):
 
-    # paths = glob.glob(os.path.join(car.config.test_images_directory, "*.jpg"))
-    paths = glob.glob(os.path.join(car.config.additional_test_images_directory, "*.jpg"))
+    paths = glob.glob(os.path.join(car.config.test_images_directory, "*.jpg"))
+    # paths = glob.glob(os.path.join(car.config.additional_test_images_directory, "*.jpg"))
 
     parameters = {
         "cropping_margins": [[350, 50], [100, 100]],
@@ -47,18 +47,13 @@ def find_lane_lines_in_test_images(logger):
         warp_matrix = cv2.getPerspectiveTransform(source, destination)
         warped = cv2.warpPerspective(undistorted_image, warp_matrix, (image.shape[1], image.shape[0]))
 
-        saturation = preprocessor.get_saturation_mask(warped)
-        x_gradient = preprocessor.get_x_direction_gradient_mask(warped)
-
-        rough_mask = saturation | x_gradient
-
         mask = preprocessor.get_preprocessed_image(warped)
 
-        # left_finder = car.processing.LaneLineFinder(mask[:, :mask.shape[1]//2], offset=0)
-        # right_finder = car.processing.LaneLineFinder(mask[:, (mask.shape[1] // 2):], offset=mask.shape[1] // 2)
-        #
-        # left_lane_rough_sketch = left_finder.get_lane_drawing()
-        # right_lane_rough_sketch = right_finder.get_lane_drawing()
+        left_finder = car.processing.LaneLineFinder(mask[:, :mask.shape[1]//2], offset=0)
+        right_finder = car.processing.LaneLineFinder(mask[:, (mask.shape[1] // 2):], offset=mask.shape[1] // 2)
+
+        left_lane_rough_sketch = left_finder.get_lane_drawing()
+        right_lane_rough_sketch = right_finder.get_lane_drawing()
 
         # left_lane_equation = left_finder.get_lane_equation()
         # right_lane_equation = right_finder.get_lane_equation()
@@ -72,9 +67,9 @@ def find_lane_lines_in_test_images(logger):
         # image_with_lanes[left_lane_mask == 1] = (0, 0, 255)
         # image_with_lanes[right_lane_mask == 1] = (0, 0, 255)
 
-        images = [image_with_warp_mask, warped, 255 * rough_mask, 255 * mask]
+        images = [image_with_warp_mask, warped, 255 * mask, 255 * left_lane_rough_sketch, 255 * right_lane_rough_sketch]
 
-        logger.info(vlogging.VisualRecord("Image, warped, rough_mask, mask",
+        logger.info(vlogging.VisualRecord("Image, warped, mask, left sketch, right sketch",
                                           [cv2.resize(
                                               image,
                                               (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5)))
