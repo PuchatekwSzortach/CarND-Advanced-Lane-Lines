@@ -269,9 +269,10 @@ class LaneLineFinder:
     Class for computing lane equation
     """
 
-    def __init__(self, image):
+    def __init__(self, image, offset):
 
         self.image = image
+        self.offset = offset
 
     def get_lane_starting_x(self):
 
@@ -342,7 +343,7 @@ class LaneLineFinder:
         x = self.get_lane_starting_x()
         lane_fits = self.get_best_lane_fits(x)
 
-        return np.polyfit(lane_fits[:, 1], lane_fits[:, 0], deg=2)
+        return np.polyfit(lane_fits[:, 1], lane_fits[:, 0] + self.offset, deg=2)
 
 
 def get_lane_mask(image, lane_equation, warp_matrix):

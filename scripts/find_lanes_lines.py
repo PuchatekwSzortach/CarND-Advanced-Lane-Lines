@@ -47,8 +47,8 @@ def find_lane_lines_in_test_images(logger):
 
         mask = preprocessor.get_preprocessed_image(warped)
 
-        left_finder = car.processing.LaneLineFinder(mask[:, :mask.shape[1]//2])
-        right_finder = car.processing.LaneLineFinder(mask[:, (mask.shape[1] // 2):])
+        left_finder = car.processing.LaneLineFinder(mask[:, :mask.shape[1]//2], offset=0)
+        right_finder = car.processing.LaneLineFinder(mask[:, (mask.shape[1] // 2):], offset=mask.shape[1] // 2)
 
         left_lane_rough_sketch = left_finder.get_lane_drawing()
         right_lane_rough_sketch = right_finder.get_lane_drawing()
@@ -58,11 +58,12 @@ def find_lane_lines_in_test_images(logger):
 
         unwarp_matrix = cv2.getPerspectiveTransform(destination, source)
         left_lane_mask = car.processing.get_lane_mask(undistorted_image, left_lane_equation, unwarp_matrix)
+        right_lane_mask = car.processing.get_lane_mask(undistorted_image, right_lane_equation, unwarp_matrix)
 
         image_with_lanes = undistorted_image.copy().astype(np.float32)
 
         image_with_lanes[left_lane_mask == 1] = (0, 0, 255)
-        image_with_lanes = np.clip(image_with_lanes, 0, 255)
+        image_with_lanes[right_lane_mask == 1] = (0, 0, 255)
 
         images = [undistorted_image, warped, 255 * mask, 255 * left_lane_rough_sketch, 255 * right_lane_rough_sketch,
                   255 * left_lane_mask, image_with_lanes]
