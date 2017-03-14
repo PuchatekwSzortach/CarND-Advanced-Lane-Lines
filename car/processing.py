@@ -314,6 +314,55 @@ class LaneLineFinder:
 
         return x, y
 
+    def scan_down_the_image_for_line_candidates(self, x, y, kernel_width, kernel_height):
+
+        candidate_points = []
+        #
+        # print("Frame start")
+
+        while y + kernel_height < self.image.shape[0]:
+
+            y_start = max(0, y - kernel_height)
+            y_end = min(y, self.image.shape[0])
+            candidate_band = self.image[y_start:y_end, x - kernel_width: x + kernel_width]
+
+            kernel = np.ones((min(kernel_height, y_end - y_start), kernel_width))
+
+            # print("y: {}, x: {}".format(y, x))
+            # print("Candidate band coordinates: [{}:{}, {}:{}]".format(
+            #     y_start, y_end, x - kernel_width, x + kernel_width))
+            # print("Candidate band: {}, kernel: {}".format(candidate_band.shape, kernel.shape))
+
+            correletion = scipy.signal.correlate2d(candidate_band, kernel, mode='valid').squeeze()
+
+            x = np.argmax(correletion) + x - (kernel_width // 2)
+
+            candidate_points.append([x, y])
+
+            y += kernel_height // 4
+
+        return candidate_points
+
+    def scan_up_the_image_for_line_candidates(self, x, y, kernel_width, kernel_height):
+
+        kernel = np.ones((kernel_height, kernel_width))
+
+        candidate_points = []
+
+        while y - kernel_height > 0:
+
+            candidate_band = self.image[y - kernel_height:y, x - kernel_width: x + kernel_width]
+
+            correletion = scipy.signal.correlate2d(candidate_band, kernel, mode='valid').squeeze()
+
+            x = np.argmax(correletion) + x - (kernel_width // 2)
+
+            candidate_points.append([x, y])
+
+            y -= kernel_height // 4
+
+        return candidate_points
+
     def get_best_lane_fits(self, x):
 
         height = 250
@@ -344,6 +393,14 @@ class LaneLineFinder:
         kernel_height = 100
         start_x, start_y = self.get_lane_starting_coordinates(kernel_width, kernel_height)
 
+        lower_candidates = self.scan_down_the_image_for_line_candidates(
+            start_x, start_y, kernel_width, kernel_height)
+
+        upper_candidates = self.scan_up_the_image_for_line_candidates(
+            start_x, start_y, kernel_width, kernel_height)
+
+        candidates = list(reversed(lower_candidates)) + [[start_x, start_y]] + upper_candidates
+
         # lane_polynomial = np.polyfit(lane_fits[:, 1], lane_fits[:, 0], deg=2)
         #
         empty = np.zeros_like(self.image)
@@ -356,9 +413,9 @@ class LaneLineFinder:
         empty[
             max(0, start_y - (kernel_height//2)):start_y + (kernel_height//2),
             max(0, start_x - (kernel_width//2)):start_x + (kernel_width//2)] = 1
-        #
-        # # Draw individual detected points
-        # cv2.polylines(empty_two, np.int32([lane_fits]), isClosed=False, color=1, thickness=4)
+
+        # Draw individual detected points
+        cv2.polylines(empty_two, np.int32([candidates]), isClosed=False, color=1, thickness=4)
         #
         # # Draw polynomial fit
         # arguments = np.linspace(self.image.shape[0], 0)
@@ -373,10 +430,19 @@ class LaneLineFinder:
 
     def get_lane_equation(self):
 
-        x = self.get_lane_starting_x()
-        lane_fits = self.get_best_lane_fits(x)
+        kernel_width = 50
+        kernel_height = 100
+        start_x, start_y = self.get_lane_starting_coordinates(kernel_width, kernel_height)
 
-        return np.polyfit(lane_fits[:, 1], lane_fits[:, 0] + self.offset, deg=2)
+        lower_candidates = self.scan_down_the_image_for_line_candidates(
+            start_x, start_y, kernel_width, kernel_height)
+
+        upper_candidates = self.scan_up_the_image_for_line_candidates(
+            start_x, start_y, kernel_width, kernel_height)
+
+        candidates = np.array(list(reversed(lower_candidates)) + [[start_x, start_y]] + upper_candidates)
+
+        return np.polyfit(candidates[:, 1], candidates[:, 0] + self.offset, deg=2)
 
 
 def get_lane_mask(image, lane_equation, warp_matrix):
@@ -387,7 +453,7 @@ def get_lane_mask(image, lane_equation, warp_matrix):
     values = (lane_equation[0] * (arguments ** 2)) + (lane_equation[1] * arguments) + lane_equation[2]
 
     points = list(zip(values, arguments))
-    cv2.polylines(mask, np.int32([points]), isClosed=False, color=1, thickness=40)
+    cv2.polylines(mask, np.int32([points]), isClosed=False, color=1, thickness=20)
 
     return cv2.warpPerspective(mask, warp_matrix, (mask.shape[1], mask.shape[0]))
 

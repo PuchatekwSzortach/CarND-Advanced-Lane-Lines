@@ -55,19 +55,19 @@ def find_lane_lines_in_test_images(logger):
         left_lane_rough_sketch = left_finder.get_lane_drawing()
         right_lane_rough_sketch = right_finder.get_lane_drawing()
 
-        # left_lane_equation = left_finder.get_lane_equation()
-        # right_lane_equation = right_finder.get_lane_equation()
-        #
-        # unwarp_matrix = cv2.getPerspectiveTransform(destination, source)
-        # left_lane_mask = car.processing.get_lane_mask(undistorted_image, left_lane_equation, unwarp_matrix)
-        # right_lane_mask = car.processing.get_lane_mask(undistorted_image, right_lane_equation, unwarp_matrix)
-        #
-        # image_with_lanes = undistorted_image.copy().astype(np.float32)
-        #
-        # image_with_lanes[left_lane_mask == 1] = (0, 0, 255)
-        # image_with_lanes[right_lane_mask == 1] = (0, 0, 255)
+        left_lane_equation = left_finder.get_lane_equation()
+        right_lane_equation = right_finder.get_lane_equation()
 
-        images = [image_with_warp_mask, warped, 255 * mask, 255 * left_lane_rough_sketch, 255 * right_lane_rough_sketch]
+        unwarp_matrix = cv2.getPerspectiveTransform(destination, source)
+        left_lane_mask = car.processing.get_lane_mask(undistorted_image, left_lane_equation, unwarp_matrix)
+        right_lane_mask = car.processing.get_lane_mask(undistorted_image, right_lane_equation, unwarp_matrix)
+
+        image_with_lanes = undistorted_image.copy().astype(np.float32)
+
+        image_with_lanes[left_lane_mask == 1] = (0, 0, 255)
+        image_with_lanes[right_lane_mask == 1] = (0, 0, 255)
+
+        images = [image_with_warp_mask, warped, 255 * mask, 255 * left_lane_rough_sketch, 255 * right_lane_rough_sketch, image_with_lanes]
 
         logger.info(vlogging.VisualRecord("Image, warped, mask, left sketch, right sketch",
                                           [cv2.resize(
@@ -115,8 +115,8 @@ def main():
 
     logger = car.utilities.get_logger(car.config.log_path)
 
-    find_lane_lines_in_test_images(logger)
-    # find_lane_lines_in_videos_simple()
+    # find_lane_lines_in_test_images(logger)
+    find_lane_lines_in_videos_simple()
 
 
 if __name__ == "__main__":
