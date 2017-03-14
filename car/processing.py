@@ -243,8 +243,8 @@ class ShadowPreprocessor:
 def get_perspective_transformation_source_coordinates(image_shape):
 
     coordinates = np.array([
-        [200, image_shape[0] - 50],  # left bottom
-        [image_shape[1] - 150, image_shape[0] - 50],  # right bottom
+        [150, image_shape[0] - 20],  # left bottom
+        [image_shape[1] - 150, image_shape[0] - 20],  # right bottom
         [image_shape[1] - 550, 440],  # right top
         [550, 440],  # left top
     ])
@@ -288,7 +288,7 @@ class LaneLineFinder:
 
     def get_best_lane_fits(self, x):
 
-        height = 100
+        height = 250
         width = 100
         kernel = np.ones((height, width))
 
