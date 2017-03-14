@@ -265,6 +265,9 @@ def get_perspective_transformation_destination_coordinates(image_shape):
 
 
 class LaneLineFinder:
+    """
+    Class for computing lane equation
+    """
 
     def __init__(self, image):
 
@@ -320,9 +323,10 @@ class LaneLineFinder:
         # Starting position
         empty[self.image.shape[0] - 100:, x-5:x+5] = 1
 
+        # Draw individual detected points
         cv2.polylines(empty_two, np.int32([lane_fits]), isClosed=False, color=1, thickness=4)
 
-        # Draw fit
+        # Draw polynomial fit
         arguments = np.linspace(self.image.shape[0], 0)
         values = (lane_polynomial[0] * (arguments**2)) + (lane_polynomial[1] * arguments) + lane_polynomial[2]
 
@@ -333,6 +337,25 @@ class LaneLineFinder:
 
         return lane_image
 
+    def get_lane_equation(self):
+
+        x = self.get_lane_starting_x()
+        lane_fits = self.get_best_lane_fits(x)
+
+        return np.polyfit(lane_fits[:, 1], lane_fits[:, 0], deg=2)
+
+
+def get_lane_mask(image, lane_equation, warp_matrix):
+
+    mask = np.zeros(shape=image.shape[:2])
+
+    arguments = np.linspace(mask.shape[0], 0)
+    values = (lane_equation[0] * (arguments ** 2)) + (lane_equation[1] * arguments) + lane_equation[2]
+
+    points = list(zip(values, arguments))
+    cv2.polylines(mask, np.int32([points]), isClosed=False, color=1, thickness=40)
+
+    return cv2.warpPerspective(mask, warp_matrix, (mask.shape[1], mask.shape[0]))
 
 
 
