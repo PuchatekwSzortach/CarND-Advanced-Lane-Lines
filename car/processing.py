@@ -272,10 +272,15 @@ class LaneLineFinder:
 
     def get_lane_starting_x(self):
 
-        histogram = np.sum(self.image, axis=0).astype(np.int32)
+        subimage = self.image[(self.image.shape[0] // 2):, :]
+
+        width = 11
+        kernel = np.ones((subimage.shape[0], width))
+
+        histogram = scipy.signal.convolve2d(subimage, kernel, mode='valid').flatten().astype(np.int32)
         peak = np.argmax(histogram)
 
-        return peak
+        return peak + (width // 2)
 
     def get_best_lane_fits(self, x):
 
@@ -297,20 +302,32 @@ class LaneLineFinder:
 
             best_fits.append([x, y])
 
-            y -= height // 2
+            y -= height // 4
 
-        return best_fits
+        return np.array(best_fits)
 
     def get_lane_drawing(self):
 
         x = self.get_lane_starting_x()
 
         lane_fits = self.get_best_lane_fits(x)
+
+        lane_polynomial = np.polyfit(lane_fits[:, 1], lane_fits[:, 0], deg=2)
+
         empty = np.zeros_like(self.image)
         empty_two = np.zeros_like(self.image)
 
+        # Starting position
         empty[self.image.shape[0] - 100:, x-5:x+5] = 1
+
         cv2.polylines(empty_two, np.int32([lane_fits]), isClosed=False, color=1, thickness=4)
+
+        # Draw fit
+        arguments = np.linspace(self.image.shape[0], 0)
+        values = (lane_polynomial[0] * (arguments**2)) + (lane_polynomial[1] * arguments) + lane_polynomial[2]
+
+        points = list(zip(values, arguments))
+        cv2.polylines(empty, np.int32([points]), isClosed=False, color=1, thickness=8)
 
         lane_image = np.dstack([self.image, empty, empty_two])
 
