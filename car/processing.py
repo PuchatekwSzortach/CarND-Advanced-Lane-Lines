@@ -317,8 +317,6 @@ class LaneLineFinder:
     def scan_down_the_image_for_line_candidates(self, x, y, kernel_width, kernel_height):
 
         candidate_points = []
-        #
-        # print("Frame start")
 
         while y + kernel_height < self.image.shape[0]:
 
@@ -328,16 +326,12 @@ class LaneLineFinder:
 
             kernel = np.ones((min(kernel_height, y_end - y_start), kernel_width))
 
-            # print("y: {}, x: {}".format(y, x))
-            # print("Candidate band coordinates: [{}:{}, {}:{}]".format(
-            #     y_start, y_end, x - kernel_width, x + kernel_width))
-            # print("Candidate band: {}, kernel: {}".format(candidate_band.shape, kernel.shape))
-
             correletion = scipy.signal.correlate2d(candidate_band, kernel, mode='valid').squeeze()
-
             x = np.argmax(correletion) + x - (kernel_width // 2)
 
-            candidate_points.append([x, y])
+            if np.max(correletion) > 500:
+
+                candidate_points.append([x, y])
 
             y += kernel_height // 4
 
@@ -357,7 +351,9 @@ class LaneLineFinder:
 
             x = np.argmax(correletion) + x - (kernel_width // 2)
 
-            candidate_points.append([x, y])
+            if np.max(correletion) > 500:
+
+                candidate_points.append([x, y])
 
             y -= kernel_height // 4
 
@@ -401,14 +397,9 @@ class LaneLineFinder:
 
         candidates = list(reversed(lower_candidates)) + [[start_x, start_y]] + upper_candidates
 
-        # lane_polynomial = np.polyfit(lane_fits[:, 1], lane_fits[:, 0], deg=2)
-        #
         empty = np.zeros_like(self.image)
         empty_two = np.zeros_like(self.image)
-        #
-        # # Starting position
-        # empty[self.image.shape[0] - 100:, x-5:x+5] = 1
-        #
+
         # Starting coordinates
         empty[
             max(0, start_y - (kernel_height//2)):start_y + (kernel_height//2),
@@ -416,14 +407,7 @@ class LaneLineFinder:
 
         # Draw individual detected points
         cv2.polylines(empty_two, np.int32([candidates]), isClosed=False, color=1, thickness=4)
-        #
-        # # Draw polynomial fit
-        # arguments = np.linspace(self.image.shape[0], 0)
-        # values = (lane_polynomial[0] * (arguments**2)) + (lane_polynomial[1] * arguments) + lane_polynomial[2]
-        #
-        # points = list(zip(values, arguments))
-        # cv2.polylines(empty, np.int32([points]), isClosed=False, color=1, thickness=8)
-        #
+
         lane_image = np.dstack([self.image, empty, empty_two])
 
         return lane_image
