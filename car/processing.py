@@ -286,6 +286,29 @@ class LaneLineFinder:
 
         return peak + (width // 2)
 
+    def get_lane_starting_coordinates(self, kernel_width, kernel_height):
+
+        subimage = self.image[(self.image.shape[0] // 2):, :]
+
+        # Compute vertical histogram to find x with largest response
+        kernel = np.ones((subimage.shape[0], kernel_width))
+
+        histogram = scipy.signal.convolve2d(subimage, kernel, mode='valid').flatten().astype(np.int32)
+        peak = np.argmax(histogram)
+
+        x = peak + (kernel.shape[1] // 2)
+
+        # For selected x compute y that has most white pixels
+        column_image = subimage[:, x - (kernel_width//2): x + (kernel_width//2)]
+        kernel = np.ones((kernel_height, column_image.shape[1]))
+
+        histogram = scipy.signal.convolve2d(column_image, kernel, mode='valid').flatten().astype(np.int32)
+        peak = np.argmax(histogram)
+
+        y = peak + (kernel.shape[0] // 2) + subimage.shape[0]
+
+        return x, y
+
     def get_best_lane_fits(self, x):
 
         height = 250
@@ -314,6 +337,10 @@ class LaneLineFinder:
 
         x = self.get_lane_starting_x()
 
+        kernel_width = 100
+        kernel_height = 100
+        start_x, start_y = self.get_lane_starting_coordinates(kernel_width, kernel_height)
+
         lane_fits = self.get_best_lane_fits(x)
 
         lane_polynomial = np.polyfit(lane_fits[:, 1], lane_fits[:, 0], deg=2)
@@ -323,6 +350,11 @@ class LaneLineFinder:
 
         # Starting position
         empty[self.image.shape[0] - 100:, x-5:x+5] = 1
+
+        # Starting coordinates
+        empty[
+            max(0, start_y - (kernel_height//2)):start_y + (kernel_height//2),
+            max(0, start_x - (kernel_width//2)):start_x + (kernel_width//2)] = 1
 
         # Draw individual detected points
         cv2.polylines(empty_two, np.int32([lane_fits]), isClosed=False, color=1, thickness=4)

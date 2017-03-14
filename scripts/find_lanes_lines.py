@@ -70,7 +70,7 @@ def find_lane_lines_in_test_images(logger):
         images = [image_with_warp_mask, warped, 255 * mask, 255 * left_lane_rough_sketch, 255 * right_lane_rough_sketch,
                   image_with_lanes]
 
-        logger.info(vlogging.VisualRecord("Image, processed",
+        logger.info(vlogging.VisualRecord(path,
                                           [cv2.resize(
                                               image,
                                               (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5)))
