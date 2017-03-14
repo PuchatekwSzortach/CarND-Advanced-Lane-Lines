@@ -17,8 +17,8 @@ import car.processing
 
 def find_lane_lines_in_test_images(logger):
 
-    paths = glob.glob(os.path.join(car.config.test_images_directory, "*.jpg"))
-    # paths = glob.glob(os.path.join(car.config.additional_test_images_directory, "*.jpg"))
+    # paths = glob.glob(os.path.join(car.config.test_images_directory, "*.jpg"))
+    paths = glob.glob(os.path.join(car.config.additional_test_images_directory, "*.jpg"))
 
     parameters = {
         "cropping_margins": [[350, 50], [100, 100]],

@@ -127,7 +127,7 @@ class ImagePreprocessor:
         binary[:, :binary.shape[1] // 4] = 0
         binary[:, 3 * binary.shape[1] // 4:] = 0
 
-        kernel = np.ones((11, 3))
+        kernel = np.ones((5, 3))
         binary = cv2.erode(binary, kernel=kernel)
         binary = cv2.dilate(binary, kernel=kernel)
 
