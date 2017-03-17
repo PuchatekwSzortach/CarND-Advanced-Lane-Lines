@@ -54,7 +54,7 @@ class ImagePreprocessor:
         :return: saturation mask
         """
 
-        hls = cv2.cvtColor(image, cv2.COLOR_BGR2HLS).astype(np.float32)
+        hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS).astype(np.float32)
 
         saturation = hls[:, :, 2]
 
@@ -65,7 +65,7 @@ class ImagePreprocessor:
 
     def get_x_direction_gradient_mask(self, image):
 
-        grayscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        grayscale = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 
         kernel_size = self.parameters['x_gradient_kernel_size']
 
@@ -79,7 +79,7 @@ class ImagePreprocessor:
 
     def get_y_direction_gradient_mask(self, image):
 
-        grayscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        grayscale = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 
         kernel_size = self.parameters['x_gradient_kernel_size']
 
@@ -93,7 +93,7 @@ class ImagePreprocessor:
 
     def get_gradient_magnitude_mask(self, image):
 
-        grayscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        grayscale = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 
         kernel_size = self.parameters['x_gradient_kernel_size']
 
@@ -167,7 +167,7 @@ class ShadowPreprocessor:
 
     def get_shadow(self, image):
 
-        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV).astype(np.float32)
+        hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV).astype(np.float32)
 
         saturation = hsv[:, :, 1]
         value = hsv[:, :, 2]

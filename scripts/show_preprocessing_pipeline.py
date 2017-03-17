@@ -32,14 +32,14 @@ def show_preprocessing_pipeline_for_test_images(logger):
     preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
 
     for path in paths:
-        image = cv2.imread(path)
+        image = car.utilities.get_image(path)
         processed = preprocessor.get_preprocessed_image(image)
 
-        images = [image, 255 * processed]
+        images = [cv2.cvtColor(image, cv2.COLOR_RGB2BGR), 255 * processed]
 
         target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
         logger.info(vlogging.VisualRecord("Image, processed",
-                                          [cv2.resize(image, target_size) for image in images]))
+                                          [cv2.resize(image, target_size) for image in images], fmt='jpg'))
 
 
 def show_preprocessing_pipeline_for_additional_test_images(logger):
@@ -59,43 +59,15 @@ def show_preprocessing_pipeline_for_additional_test_images(logger):
     preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
 
     for path in paths:
-        image = cv2.imread(path)
+
+        image = car.utilities.get_image(path)
         processed = preprocessor.get_preprocessed_image(image)
 
-        images = [image, 255 * processed]
+        images = [cv2.cvtColor(image, cv2.COLOR_RGB2BGR), 255 * processed]
 
         target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
         logger.info(vlogging.VisualRecord("Image, processed",
-                                          [cv2.resize(image, target_size) for image in images]))
-
-
-def show_preprocessing_pipeline_for_shadow_images(logger):
-
-    paths = ["test_06.jpg", "test_07.jpg", "test_09.jpg", "test_10.jpg", "test_12.jpg"]
-
-    paths = [os.path.join(car.config.additional_test_images_directory, path) for path in paths]
-
-    parameters = {
-        "cropping_margins": [[350, 50], [100, 100]],
-        "saturation_thresholds": [100, 255],
-        "x_gradient_thresholds": [30, 255],
-        "x_gradient_kernel_size": 9,
-        "y_gradient_thresholds": [10, 50],
-        "y_gradient_kernel_size": 9,
-        "gradient_magnitude_thresholds": [10, 30],
-    }
-
-    preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
-
-    for path in paths:
-        image = cv2.imread(path)
-        processed = preprocessor.get_preprocessed_image(image)
-
-        images = [image, 255 * processed]
-
-        target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
-        logger.info(vlogging.VisualRecord("Image, processed",
-                                          [cv2.resize(image, target_size) for image in images]))
+                                          [cv2.resize(image, target_size) for image in images], fmt='jpg'))
 
 
 def show_preprocessing_pipeline_for_test_videos():
@@ -216,9 +188,8 @@ def get_additional_test_frames(logger):
 def main():
 
     logger = car.utilities.get_logger(car.config.log_path)
-    show_preprocessing_pipeline_for_test_images(logger)
-    # show_preprocessing_pipeline_for_additional_test_images(logger)
-    # show_preprocessing_pipeline_for_shadow_images(logger)
+    # show_preprocessing_pipeline_for_test_images(logger)
+    show_preprocessing_pipeline_for_additional_test_images(logger)
 
     # show_preprocessing_pipeline_for_test_videos()
     # get_additional_test_frames(logger)

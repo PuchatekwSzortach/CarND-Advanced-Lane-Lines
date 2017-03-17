@@ -19,7 +19,7 @@ def show_tranformed_test_images(logger):
 
     for path in paths:
 
-        image = cv2.imread(path)
+        image = car.utilities.get_image(path)
 
         source = car.processing.get_perspective_transformation_source_coordinates(image.shape)
         destination = car.processing.get_perspective_transformation_destination_coordinates(image.shape)
@@ -32,7 +32,7 @@ def show_tranformed_test_images(logger):
 
         target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
         logger.info(vlogging.VisualRecord("Image, processed",
-                                          [cv2.resize(image, target_size) for image in images]))
+                                          [cv2.resize(image, target_size) for image in images], fmt='jpg'))
 
 
 def main():
