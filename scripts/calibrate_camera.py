@@ -25,7 +25,7 @@ def compute_camera_calibration(calibration_images_directory, calibration_pickle_
     """
 
     paths = glob.glob(os.path.join(calibration_images_directory, "*.jpg"))
-    images = [cv2.imread(path) for path in paths]
+    images = [car.utilities.get_image(path) for path in paths]
 
     x_span = 9
     y_span = 6
@@ -53,7 +53,7 @@ def compute_camera_calibration(calibration_images_directory, calibration_pickle_
             if logger is not None:
 
                 cv2.drawChessboardCorners(image, pattern_size, corners, are_corners_found)
-                logger.info(vlogging.VisualRecord("Image", cv2.pyrDown(image)))
+                logger.info(vlogging.VisualRecord("Image", cv2.pyrDown(image), fmt='jpg'))
 
     return_value, camera_matrix, distortion_coefficients, _, _ = cv2.calibrateCamera(
         objectPoints=np.array(object_space_points, dtype=np.float32), imagePoints=np.array(image_space_points),
@@ -83,11 +83,11 @@ def undistort_sample_image(calibration_images_directory, calibration_pickle_path
     paths = glob.glob(os.path.join(calibration_images_directory, "*.jpg"))
     path = paths[random.randint(0, len(paths) - 1)]
 
-    image = cv2.imread(path)
+    image = car.utilities.get_image(path)
     undistorted_image = cv2.undistort(image, data['camera_matrix'], data['distortion_coefficients'])
 
     logger.info(vlogging.VisualRecord(
-        "Image - undistorted image", [cv2.pyrDown(image), cv2.pyrDown(undistorted_image)]))
+        "Image - undistorted image", [cv2.pyrDown(image), cv2.pyrDown(undistorted_image)], fmt='jpg'))
 
 
 def main():
