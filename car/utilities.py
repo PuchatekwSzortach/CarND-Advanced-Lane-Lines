@@ -5,6 +5,8 @@ Sundry utilities
 import logging
 import os
 
+import cv2
+
 
 def get_logger(path):
     """
@@ -22,3 +24,12 @@ def get_logger(path):
     logger.addHandler(file_handler)
 
     return logger
+
+
+def get_image(path):
+    """
+    Moviepy reads in RGB order, so make sure we do so in OpenCV as well
+    """
+
+    image = cv2.imread(path)
+    return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)

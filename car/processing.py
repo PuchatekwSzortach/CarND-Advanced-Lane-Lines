@@ -326,14 +326,14 @@ class LaneLineFinder:
 
             kernel = np.ones((min(kernel_height, y_end - y_start), kernel_width))
 
-            correletion = scipy.signal.correlate2d(candidate_band, kernel, mode='valid').squeeze()
-            x = np.argmax(correletion) + x - (kernel_width // 2)
+            convolution = scipy.signal.convolve2d(candidate_band, kernel, mode='valid').squeeze()
+            x = np.argmax(convolution) + x - (kernel_width // 2)
 
-            if np.max(correletion) > 500:
+            if np.max(convolution) > 500:
 
                 candidate_points.append([x, y])
 
-            y += kernel_height // 4
+            y += kernel_height // 10
 
         return candidate_points
 
@@ -341,54 +341,35 @@ class LaneLineFinder:
 
         kernel = np.ones((kernel_height, kernel_width))
 
+        half_search_width = kernel_width // 4
+
         candidate_points = []
 
-        while y - kernel_height > 0:
+        while y - kernel_height > self.image.shape[0] // 6:
 
-            candidate_band = self.image[y - kernel_height:y, x - kernel_width: x + kernel_width]
+            candidate_band = self.image[y - kernel_height:y, x - half_search_width: x + half_search_width]
 
-            correletion = scipy.signal.correlate2d(candidate_band, kernel, mode='valid').squeeze()
+            convolution = scipy.signal.convolve2d(candidate_band, kernel, mode='valid').squeeze()
 
-            x = np.argmax(correletion) + x - (kernel_width // 2)
+            print("Band size: {}".format(candidate_band.shape))
+            print("Kernel size: {}".format(kernel.shape))
+            print("Convolution size: {}".format(convolution.shape))
 
-            if np.max(correletion) > 500:
+            x = np.argmax(convolution) + x - (kernel_width // 2)
+
+            if np.max(convolution) > 500:
 
                 candidate_points.append([x, y])
 
-            y -= kernel_height // 4
+            y -= kernel_height // 20
 
         return candidate_points
-
-    def get_best_lane_fits(self, x):
-
-        height = 250
-        width = 100
-        kernel = np.ones((height, width))
-
-        x = max(x, width)
-        y = self.image.shape[0]
-
-        best_fits = []
-
-        while y > height:
-
-            candidate_band = self.image[y - height:y, x - width: x + width]
-            correletion = scipy.signal.correlate2d(candidate_band, kernel, mode='valid').flatten()
-
-            x = np.argmax(correletion) + x - (width // 2)
-
-            best_fits.append([x, y])
-
-            y -= height // 4
-
-        return np.array(best_fits)
 
     def get_lane_drawing(self):
 
         kernel_width = 50
         kernel_height = 100
         start_x, start_y = self.get_lane_starting_coordinates(kernel_width, kernel_height)
-
         lower_candidates = self.scan_down_the_image_for_line_candidates(
             start_x, start_y, kernel_width, kernel_height)
 
