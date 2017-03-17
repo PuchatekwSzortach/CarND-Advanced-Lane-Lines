@@ -18,33 +18,7 @@ import car.processing
 def show_preprocessing_pipeline_for_test_images(logger):
 
     paths = glob.glob(os.path.join(car.config.test_images_directory, "*.jpg"))
-
-    parameters = {
-        "cropping_margins": [[350, 50], [100, 100]],
-        "saturation_thresholds": [100, 255],
-        "x_gradient_thresholds": [30, 255],
-        "x_gradient_kernel_size": 9,
-        "y_gradient_thresholds": [10, 50],
-        "y_gradient_kernel_size": 9,
-        "gradient_magnitude_thresholds": [10, 30],
-    }
-
-    preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
-
-    for path in paths:
-        image = car.utilities.get_image(path)
-        processed = preprocessor.get_preprocessed_image(image)
-
-        images = [cv2.cvtColor(image, cv2.COLOR_RGB2BGR), 255 * processed]
-
-        target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
-        logger.info(vlogging.VisualRecord("Image, processed",
-                                          [cv2.resize(image, target_size) for image in images], fmt='jpg'))
-
-
-def show_preprocessing_pipeline_for_additional_test_images(logger):
-
-    paths = glob.glob(os.path.join(car.config.additional_test_images_directory, "*.jpg"))
+    # paths = glob.glob(os.path.join(car.config.additional_test_images_directory, "*.jpg"))
 
     parameters = {
         "cropping_margins": [[350, 50], [100, 100]],
@@ -61,12 +35,27 @@ def show_preprocessing_pipeline_for_additional_test_images(logger):
     for path in paths:
 
         image = car.utilities.get_image(path)
-        processed = preprocessor.get_preprocessed_image(image)
+        undistorted_image = preprocessor.get_undistorted_image(image)
 
-        images = [cv2.cvtColor(image, cv2.COLOR_RGB2BGR), 255 * processed]
+        source = car.processing.get_perspective_transformation_source_coordinates(image.shape)
+        destination = car.processing.get_perspective_transformation_destination_coordinates(image.shape)
+
+        image_with_warp_mask = undistorted_image.copy()
+        cv2.polylines(image_with_warp_mask, np.int32([source]), isClosed=True, color=(0, 0, 255), thickness=4)
+
+        warp_matrix = cv2.getPerspectiveTransform(source, destination)
+        warped = cv2.warpPerspective(undistorted_image, warp_matrix, (image.shape[1], image.shape[0]))
+
+        saturation = preprocessor.get_saturation_mask(warped)
+        x_gradient = preprocessor.get_x_direction_gradient_mask(warped)
+        processed = preprocessor.get_preprocessed_image(warped)
+
+        images = [
+            cv2.cvtColor(image_with_warp_mask, cv2.COLOR_RGB2BGR),
+            cv2.cvtColor(warped, cv2.COLOR_RGB2BGR), 255 * saturation, 255 * x_gradient, 255 * processed]
 
         target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
-        logger.info(vlogging.VisualRecord("Image, processed",
+        logger.info(vlogging.VisualRecord("Image, warped, saturation, x_gradient, processed",
                                           [cv2.resize(image, target_size) for image in images], fmt='jpg'))
 
 
@@ -84,14 +73,14 @@ def show_preprocessing_pipeline_for_test_videos():
         "gradient_magnitude_thresholds": [10, 200],
     }
 
-    # preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
-    preprocessor = car.processing.ShadowPreprocessor(car.config.calibration_pickle_path, parameters)
+    preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
+    # preprocessor = car.processing.ShadowPreprocessor(car.config.calibration_pickle_path, parameters)
 
     for path in paths:
 
         clip = moviepy.editor.VideoFileClip(path)
 
-        processed_clip = clip.fl_image(preprocessor.get_image_without_shadows)
+        processed_clip = clip.fl_image(preprocessor.get_preprocessed_image)
 
         final_clip = moviepy.editor.clips_array([[clip, processed_clip]])
 
@@ -188,8 +177,7 @@ def get_additional_test_frames(logger):
 def main():
 
     logger = car.utilities.get_logger(car.config.log_path)
-    # show_preprocessing_pipeline_for_test_images(logger)
-    show_preprocessing_pipeline_for_additional_test_images(logger)
+    show_preprocessing_pipeline_for_test_images(logger)
 
     # show_preprocessing_pipeline_for_test_videos()
     # get_additional_test_frames(logger)

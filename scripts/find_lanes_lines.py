@@ -143,12 +143,13 @@ def get_additional_test_frames(logger):
 
 def main():
 
-    logger = car.utilities.get_logger(car.config.log_path)
-
-    find_lane_lines_in_test_images(logger)
-    # find_lane_lines_in_videos_simple()
-
-    # get_additional_test_frames(logger)
+    # logger = car.utilities.get_logger(car.config.log_path)
+    #
+    # find_lane_lines_in_test_images(logger)
+    # # find_lane_lines_in_videos_simple()
+    #
+    # # get_additional_test_frames(logger)
+    print("FIX BGR 2 RGB ISSUE FIRST!")
 
 
 if __name__ == "__main__":

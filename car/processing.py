@@ -35,18 +35,6 @@ class ImagePreprocessor:
 
         return cv2.undistort(image, self.camera_matrix, self.distortion_coefficients)
 
-    def get_cropped_image(self, image):
-
-        top_margin = self.parameters['cropping_margins'][0][0]
-        bottom_margin = self.parameters['cropping_margins'][0][1]
-
-        left_margin = self.parameters['cropping_margins'][1][0]
-        right_margin = self.parameters['cropping_margins'][1][1]
-
-        return image[
-               top_margin:image.shape[0] - bottom_margin,
-               left_margin:image.shape[1] - right_margin, :]
-
     def get_saturation_mask(self, image):
         """
         Return masked based on saturation channel of an HSL colorspace image
@@ -124,8 +112,8 @@ class ImagePreprocessor:
 
         binary = saturation | x_gradient
 
-        binary[:, :binary.shape[1] // 4] = 0
-        binary[:, 3 * binary.shape[1] // 4:] = 0
+        mask = self.get_cropping_mask(binary.shape)
+        binary *= mask
 
         kernel = np.ones((5, 3))
         binary = cv2.erode(binary, kernel=kernel)
@@ -138,6 +126,26 @@ class ImagePreprocessor:
         mask = self.get_preprocessed_image(image)
 
         return 255 * np.dstack([mask, mask, mask])
+
+    def get_cropping_mask(self, image_shape):
+        """
+        Returns a mask such that pixels outside of it can be ignored
+        :param image_shape:
+        :return: binary image
+        """
+
+        mask = np.zeros(shape=image_shape, dtype=np.uint8)
+
+        mask_coordinates = [
+            [image_shape[1] // 4, image_shape[0]],  # left bottom corner
+            [3 * image_shape[1] // 4, image_shape[0]],  # right bottom corner
+            [int(0.7 * image_shape[1]), 0],  # right upper corner
+            [int(0.3 * image_shape[1]), 0],  # left upper corner
+        ]
+
+        cv2.fillPoly(mask, np.array([mask_coordinates]).astype(np.int32), color=1)
+
+        return mask
 
 
 class ShadowPreprocessor:
