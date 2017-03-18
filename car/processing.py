@@ -15,7 +15,7 @@ class ImagePreprocessor:
     Class for preprocessing images to make task of lane finding easier
     """
 
-    def __init__(self, calibration_pickle_path, parameters):
+    def __init__(self, calibration_pickle_path, parameters, warp_matrix):
         """
         Constructor
         :param calibration_pickle_path: path to pickle with camera calibration data
@@ -30,6 +30,9 @@ class ImagePreprocessor:
             self.distortion_coefficients = data['distortion_coefficients']
 
         self.parameters = parameters
+        self.warp_matrix = warp_matrix
+
+        self.shadow_preprocessor = ShadowPreprocessor(calibration_pickle_path, parameters)
 
     def get_undistorted_image(self, image):
 
@@ -98,6 +101,10 @@ class ImagePreprocessor:
 
         return np.uint8((lower_threshold <= magnitude) & (magnitude <= upper_threshold))
 
+    def get_warped_image(self, image):
+
+        return cv2.warpPerspective(image, self.warp_matrix, (image.shape[1], image.shape[0]))
+
     def get_preprocessed_image(self, image):
         """
         Get preprocessed image
@@ -107,8 +114,11 @@ class ImagePreprocessor:
 
         undistorted_image = self.get_undistorted_image(image)
 
-        saturation = self.get_saturation_mask(undistorted_image)
-        x_gradient = self.get_x_direction_gradient_mask(undistorted_image)
+        warped = self.get_warped_image(undistorted_image)
+        deshadowed = self.shadow_preprocessor.get_image_without_shadows(warped)
+
+        saturation = self.get_saturation_mask(deshadowed)
+        x_gradient = self.get_x_direction_gradient_mask(deshadowed)
 
         binary = saturation | x_gradient
 
@@ -124,7 +134,6 @@ class ImagePreprocessor:
     def get_preprocessed_image_for_video(self, image):
 
         mask = self.get_preprocessed_image(image)
-
         return 255 * np.dstack([mask, mask, mask])
 
     def get_cropping_mask(self, image_shape):
@@ -261,13 +270,6 @@ def get_perspective_transformation_source_coordinates(image_shape):
 
 
 def get_perspective_transformation_destination_coordinates(image_shape):
-
-    # coordinates = np.array([
-    #     [0, image_shape[0]],  # lower left corner
-    #     [image_shape[1], image_shape[0]],  # lower right corner
-    #     [image_shape[1], 0],  # upper right corner
-    #     [0, 0]  # upper left corner
-    # ])
 
     coordinates = np.array([
         [400, image_shape[0]],  # lower left corner
