@@ -17,33 +17,7 @@ import car.processing
 
 def show_preprocessing_pipeline_for_test_images(logger):
 
-    paths = glob.glob(os.path.join(car.config.test_images_directory, "*.jpg"))
-
-    parameters = {
-        "cropping_margins": [[350, 50], [100, 100]],
-        "saturation_thresholds": [100, 255],
-        "x_gradient_thresholds": [30, 255],
-        "x_gradient_kernel_size": 9,
-        "y_gradient_thresholds": [10, 50],
-        "y_gradient_kernel_size": 9,
-        "gradient_magnitude_thresholds": [10, 30],
-    }
-
-    preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
-
-    for path in paths:
-        image = cv2.imread(path)
-        processed = preprocessor.get_preprocessed_image(image)
-
-        images = [image, 255 * processed]
-
-        target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
-        logger.info(vlogging.VisualRecord("Image, processed",
-                                          [cv2.resize(image, target_size) for image in images]))
-
-
-def show_preprocessing_pipeline_for_additional_test_images(logger):
-
+    # paths = glob.glob(os.path.join(car.config.test_images_directory, "*.jpg"))
     paths = glob.glob(os.path.join(car.config.additional_test_images_directory, "*.jpg"))
 
     parameters = {
@@ -56,46 +30,31 @@ def show_preprocessing_pipeline_for_additional_test_images(logger):
         "gradient_magnitude_thresholds": [10, 30],
     }
 
-    preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
+    image_shape = (720, 1280)
+    source = car.processing.get_perspective_transformation_source_coordinates(image_shape)
+    destination = car.processing.get_perspective_transformation_destination_coordinates(image_shape)
+    warp_matrix = cv2.getPerspectiveTransform(source, destination)
+
+    preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters, warp_matrix)
 
     for path in paths:
-        image = cv2.imread(path)
-        processed = preprocessor.get_preprocessed_image(image)
 
-        images = [image, 255 * processed]
+        image = car.utilities.get_image(path)
+
+        image_with_warp_mask = preprocessor.get_undistorted_image(image)
+        cv2.polylines(image_with_warp_mask, np.int32([source]), isClosed=True, color=(0, 0, 255), thickness=4)
+
+        warped = preprocessor.get_warped_image(image)
+        processed = preprocessor.get_preprocessed_image(image)
+        processed_deshadowed = preprocessor.get_preprocessed_image(image)
+
+        images = [
+            cv2.cvtColor(image_with_warp_mask, cv2.COLOR_RGB2BGR),
+            cv2.cvtColor(warped, cv2.COLOR_RGB2BGR), 255 * processed, 255 * processed_deshadowed]
 
         target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
-        logger.info(vlogging.VisualRecord("Image, processed",
-                                          [cv2.resize(image, target_size) for image in images]))
-
-
-def show_preprocessing_pipeline_for_shadow_images(logger):
-
-    paths = ["test_06.jpg", "test_07.jpg", "test_09.jpg", "test_10.jpg", "test_12.jpg"]
-
-    paths = [os.path.join(car.config.additional_test_images_directory, path) for path in paths]
-
-    parameters = {
-        "cropping_margins": [[350, 50], [100, 100]],
-        "saturation_thresholds": [100, 255],
-        "x_gradient_thresholds": [30, 255],
-        "x_gradient_kernel_size": 9,
-        "y_gradient_thresholds": [10, 50],
-        "y_gradient_kernel_size": 9,
-        "gradient_magnitude_thresholds": [10, 30],
-    }
-
-    preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
-
-    for path in paths:
-        image = cv2.imread(path)
-        processed = preprocessor.get_preprocessed_image(image)
-
-        images = [image, 255 * processed]
-
-        target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
-        logger.info(vlogging.VisualRecord("Image, processed",
-                                          [cv2.resize(image, target_size) for image in images]))
+        logger.info(vlogging.VisualRecord("Image, warped, saturation, x_gradient, processed",
+                                          [cv2.resize(image, target_size) for image in images], fmt='jpg'))
 
 
 def show_preprocessing_pipeline_for_test_videos():
@@ -109,17 +68,21 @@ def show_preprocessing_pipeline_for_test_videos():
         "x_gradient_kernel_size": 9,
         "y_gradient_thresholds": [10, 50],
         "y_gradient_kernel_size": 9,
-        "gradient_magnitude_thresholds": [10, 200],
+        "gradient_magnitude_thresholds": [10, 30],
     }
 
-    # preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
-    preprocessor = car.processing.ShadowPreprocessor(car.config.calibration_pickle_path, parameters)
+    image_shape = (720, 1280)
+    source = car.processing.get_perspective_transformation_source_coordinates(image_shape)
+    destination = car.processing.get_perspective_transformation_destination_coordinates(image_shape)
+    warp_matrix = cv2.getPerspectiveTransform(source, destination)
+
+    preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters, warp_matrix)
 
     for path in paths:
 
         clip = moviepy.editor.VideoFileClip(path)
 
-        processed_clip = clip.fl_image(preprocessor.get_image_without_shadows)
+        processed_clip = clip.fl_image(preprocessor.get_preprocessed_image_for_video)
 
         final_clip = moviepy.editor.clips_array([[clip, processed_clip]])
 
@@ -216,11 +179,9 @@ def get_additional_test_frames(logger):
 def main():
 
     logger = car.utilities.get_logger(car.config.log_path)
-    show_preprocessing_pipeline_for_test_images(logger)
-    # show_preprocessing_pipeline_for_additional_test_images(logger)
-    # show_preprocessing_pipeline_for_shadow_images(logger)
+    # show_preprocessing_pipeline_for_test_images(logger)
 
-    # show_preprocessing_pipeline_for_test_videos()
+    show_preprocessing_pipeline_for_test_videos()
     # get_additional_test_frames(logger)
 
 
