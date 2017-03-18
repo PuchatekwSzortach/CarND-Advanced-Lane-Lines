@@ -17,8 +17,8 @@ import car.processing
 
 def find_lane_lines_in_test_images(logger):
 
-    # paths = glob.glob(os.path.join(car.config.test_images_directory, "*.jpg"))
-    paths = glob.glob(os.path.join(car.config.additional_test_images_directory, "*.jpg"))
+    paths = glob.glob(os.path.join(car.config.test_images_directory, "*.jpg"))
+    # paths = glob.glob(os.path.join(car.config.additional_test_images_directory, "*.jpg"))
 
     parameters = {
         "cropping_margins": [[350, 50], [100, 100]],
@@ -30,50 +30,57 @@ def find_lane_lines_in_test_images(logger):
         "gradient_magnitude_thresholds": [10, 30],
     }
 
-    preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
+    image_shape = (720, 1280)
+    source = car.processing.get_perspective_transformation_source_coordinates(image_shape)
+    destination = car.processing.get_perspective_transformation_destination_coordinates(image_shape)
+    warp_matrix = cv2.getPerspectiveTransform(source, destination)
+
+    preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters, warp_matrix)
 
     for path in paths:
 
-        image = cv2.imread(path)
+        image = car.utilities.get_image(path)
 
         undistorted_image = preprocessor.get_undistorted_image(image)
 
-        source = car.processing.get_perspective_transformation_source_coordinates(image.shape)
-        destination = car.processing.get_perspective_transformation_destination_coordinates(image.shape)
+        warped = preprocessor.get_warped_image(undistorted_image)
+        mask = preprocessor.get_preprocessed_image(image)
 
-        image_with_warp_mask = undistorted_image.copy()
-        cv2.polylines(image_with_warp_mask, np.int32([source]), isClosed=True, color=(0, 0, 255), thickness=4)
+        # left_finder = car.processing.LaneLineFinder(mask[:, :mask.shape[1]//2], offset=0)
+        # right_finder = car.processing.LaneLineFinder(mask[:, (mask.shape[1] // 2):], offset=mask.shape[1] // 2)
 
-        warp_matrix = cv2.getPerspectiveTransform(source, destination)
-        warped = cv2.warpPerspective(undistorted_image, warp_matrix, (image.shape[1], image.shape[0]))
+        # left_lane_rough_sketch = left_finder.get_lane_drawing()
+        # right_lane_rough_sketch = right_finder.get_lane_drawing()
 
-        mask = preprocessor.get_preprocessed_image(warped)
+        left_finder = car.processing.LaneLineFinderTwo(mask[:, :mask.shape[1] // 2], offset=0)
+        right_finder = car.processing.LaneLineFinderTwo(mask[:, (mask.shape[1] // 2):], offset=mask.shape[1] // 2)
 
-        left_finder = car.processing.LaneLineFinder(mask[:, :mask.shape[1]//2], offset=0)
-        right_finder = car.processing.LaneLineFinder(mask[:, (mask.shape[1] // 2):], offset=mask.shape[1] // 2)
+        left_search_image = left_finder.get_lane_search_image()
+        right_search_image = right_finder.get_lane_search_image()
 
-        left_lane_rough_sketch = left_finder.get_lane_drawing()
-        right_lane_rough_sketch = right_finder.get_lane_drawing()
+        search_image = np.zeros_like(mask)
+        search_image[:, :mask.shape[1] // 2] = left_search_image
+        search_image[:, mask.shape[1] // 2:] = right_search_image
 
-        left_lane_equation = left_finder.get_lane_equation()
-        right_lane_equation = right_finder.get_lane_equation()
+        #
+        # left_lane_equation = left_finder.get_lane_equation()
+        # right_lane_equation = right_finder.get_lane_equation()
+        #
+        # unwarp_matrix = cv2.getPerspectiveTransform(destination, source)
+        # left_lane_mask = car.processing.get_lane_mask(undistorted_image, left_lane_equation, unwarp_matrix)
+        # right_lane_mask = car.processing.get_lane_mask(undistorted_image, right_lane_equation, unwarp_matrix)
+        #
+        # image_with_lanes = undistorted_image.copy().astype(np.float32)
+        #
+        # image_with_lanes[left_lane_mask == 1] = (0, 0, 255)
+        # image_with_lanes[right_lane_mask == 1] = (0, 0, 255)
+        #
+        images = [cv2.cvtColor(undistorted_image, cv2.COLOR_BGR2RGB),
+                  cv2.cvtColor(warped, cv2.COLOR_BGR2RGB), 255 * mask, 255 * search_image]
 
-        unwarp_matrix = cv2.getPerspectiveTransform(destination, source)
-        left_lane_mask = car.processing.get_lane_mask(undistorted_image, left_lane_equation, unwarp_matrix)
-        right_lane_mask = car.processing.get_lane_mask(undistorted_image, right_lane_equation, unwarp_matrix)
-
-        image_with_lanes = undistorted_image.copy().astype(np.float32)
-
-        image_with_lanes[left_lane_mask == 1] = (0, 0, 255)
-        image_with_lanes[right_lane_mask == 1] = (0, 0, 255)
-
-        images = [image_with_warp_mask, warped, 255 * mask, 255 * left_lane_rough_sketch, 255 * right_lane_rough_sketch, image_with_lanes]
-
-        logger.info(vlogging.VisualRecord("Image, warped, mask, left sketch, right sketch",
-                                          [cv2.resize(
-                                              image,
-                                              (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5)))
-                                           for image in images]))
+        logger.info(vlogging.VisualRecord(
+            "Image, warped, mask, left sketch, right sketch",
+            [cv2.resize(image, (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))) for image in images]))
 
 
 def find_lane_lines_in_videos_simple():
@@ -143,13 +150,12 @@ def get_additional_test_frames(logger):
 
 def main():
 
-    # logger = car.utilities.get_logger(car.config.log_path)
-    #
-    # find_lane_lines_in_test_images(logger)
+    logger = car.utilities.get_logger(car.config.log_path)
+
+    find_lane_lines_in_test_images(logger)
     # # find_lane_lines_in_videos_simple()
     #
     # # get_additional_test_frames(logger)
-    print("FIX BGR 2 RGB ISSUE FIRST!")
 
 
 if __name__ == "__main__":

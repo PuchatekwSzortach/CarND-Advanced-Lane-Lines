@@ -46,14 +46,13 @@ def show_preprocessing_pipeline_for_test_images(logger):
 
         warped = preprocessor.get_warped_image(image)
         processed = preprocessor.get_preprocessed_image(image)
-        processed_deshadowed = preprocessor.get_preprocessed_image(image)
 
         images = [
             cv2.cvtColor(image_with_warp_mask, cv2.COLOR_RGB2BGR),
-            cv2.cvtColor(warped, cv2.COLOR_RGB2BGR), 255 * processed, 255 * processed_deshadowed]
+            cv2.cvtColor(warped, cv2.COLOR_RGB2BGR), 255 * processed]
 
         target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
-        logger.info(vlogging.VisualRecord("Image, warped, saturation, x_gradient, processed",
+        logger.info(vlogging.VisualRecord("Image, warped, processed",
                                           [cv2.resize(image, target_size) for image in images], fmt='jpg'))
 
 

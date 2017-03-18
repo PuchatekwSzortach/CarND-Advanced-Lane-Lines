@@ -420,6 +420,21 @@ class LaneLineFinder:
         return np.polyfit(candidates[:, 1], candidates[:, 0] + self.offset, deg=2)
 
 
+class LaneLineFinderTwo:
+    """
+    Class for computing lane equation
+    """
+
+    def __init__(self, image, offset):
+
+        self.image = image
+        self.offset = offset
+
+    def get_lane_search_image(self):
+
+        return self.image
+
+
 def get_lane_mask(image, lane_equation, warp_matrix):
 
     mask = np.zeros(shape=image.shape[:2])
