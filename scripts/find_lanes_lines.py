@@ -58,7 +58,7 @@ def find_lane_lines_in_test_images(logger):
         left_search_image = left_finder.get_lane_search_image()
         right_search_image = right_finder.get_lane_search_image()
 
-        search_image = np.zeros_like(mask)
+        search_image = np.zeros_like(image)
         search_image[:, :mask.shape[1] // 2] = left_search_image
         search_image[:, mask.shape[1] // 2:] = right_search_image
 
@@ -76,7 +76,7 @@ def find_lane_lines_in_test_images(logger):
         # image_with_lanes[right_lane_mask == 1] = (0, 0, 255)
         #
         images = [cv2.cvtColor(undistorted_image, cv2.COLOR_BGR2RGB),
-                  cv2.cvtColor(warped, cv2.COLOR_BGR2RGB), 255 * mask, 255 * search_image]
+                  cv2.cvtColor(warped, cv2.COLOR_BGR2RGB), 255 * mask, search_image]
 
         logger.info(vlogging.VisualRecord(
             "Image, warped, mask, left sketch, right sketch",

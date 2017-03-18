@@ -430,9 +430,79 @@ class LaneLineFinderTwo:
         self.image = image
         self.offset = offset
 
+    def get_lane_starting_coordinates(self, kernel_width, kernel_height):
+
+        # Compute vertical histogram to find x with largest response
+        kernel = np.ones((self.image.shape[0], kernel_width))
+
+        histogram = scipy.signal.convolve2d(self.image, kernel, mode='valid').squeeze().astype(np.int32)
+        peak = np.argmax(histogram)
+
+        x = peak + (kernel.shape[1] // 2)
+
+        # For selected x compute y that has most white pixels
+        column_image = self.image[:, x - (kernel_width//2): x + (kernel_width//2)]
+        kernel = np.ones((kernel_height, column_image.shape[1]))
+
+        histogram = scipy.signal.convolve2d(column_image, kernel, mode='valid').squeeze().astype(np.int32)
+        peak = np.argmax(histogram)
+
+        y = peak + (kernel.shape[0] // 2)
+
+        return x, y
+
+    def scan_up_the_image_for_line_candidates(self, x, y, kernel_width, kernel_height):
+        """
+        Scan image above starting points for lane candidates
+        :return: tuple (left area border, best hit, right area border), each element of the tuple is a list of points
+        """
+
+        kernel = np.ones((kernel_height, kernel_width))
+
+        half_search_width = kernel_width
+
+        left_border_points = []
+        candidate_points = []
+        right_border_points = []
+
+        while y - kernel_height > 0:
+
+            left_border_points.append([x - half_search_width, y])
+            right_border_points.append([x + half_search_width, y])
+
+            candidate_band = self.image[y - kernel_height:y, x - half_search_width: x + half_search_width]
+            convolution = scipy.signal.convolve2d(candidate_band, kernel, mode='valid').squeeze()
+
+            x = np.argmax(convolution) + x
+            #
+            # if np.max(convolution) > 500:
+            #
+            candidate_points.append([x, y])
+            #
+            y -= kernel_height // 4
+
+        return left_border_points, candidate_points, right_border_points
+
     def get_lane_search_image(self):
 
-        return self.image
+        kernel_width = 50
+        kernel_height = 100
+        start_x, start_y = self.get_lane_starting_coordinates(kernel_width, kernel_height)
+
+        search_image = np.zeros(shape=(self.image.shape + (3,)))
+        search_image[:, :, 0] = 255 * self.image
+
+        # Draw starting point
+        cv2.circle(search_image, (start_x, start_y), radius=15, color=(0, 255, 0), thickness=-1)
+
+        upper_left_search_border_points, upper_candidate_points, upper_right_search_border_points = \
+            self.scan_up_the_image_for_line_candidates(start_x, start_y, kernel_width, kernel_height)
+
+        search_polyline = upper_left_search_border_points + list(reversed(upper_right_search_border_points))
+
+        cv2.polylines(search_image, np.int32([search_polyline]), isClosed=True, color=(0, 0, 200), thickness=4)
+
+        return search_image
 
 
 def get_lane_mask(image, lane_equation, warp_matrix):
