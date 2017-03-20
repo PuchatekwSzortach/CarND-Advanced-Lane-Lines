@@ -465,42 +465,42 @@ class LaneLineFinderTwo:
         candidate_points = []
         right_border_points = []
 
-        conditions_map = {
-            "up": lambda y: y - kernel_height > 0,
-            "down": lambda y: y + kernel_height < self.image.shape[0]
+        terminate_scan_conditions_map = {
+            "up": lambda y, kernel_height: y - kernel_height > 0,
+            "down": lambda y, kernel_height: y + kernel_height < self.image.shape[0]
         }
 
-        update_map = {
+        update_ys_map = {
 
             "up": lambda y, kernel_height: y - (kernel_height // 4),
             "down": lambda y, kernel_height: y + (kernel_height // 4)
         }
 
-        condition = conditions_map[direction]
-        update = update_map[direction]
+        terminate_scan_condition = terminate_scan_conditions_map[direction]
+        update_y_condition = update_ys_map[direction]
 
-        while condition(y):
+        while terminate_scan_condition(y, kernel_height):
 
             left_border_points.append([x - half_search_width, y])
             right_border_points.append([x + half_search_width, y])
 
             candidate_band = self.image[y - kernel_height:y, x - half_search_width: x + half_search_width]
+
             convolution = scipy.signal.convolve2d(candidate_band, kernel, mode='valid').squeeze()
 
-            x = np.argmax(convolution) + x - (kernel_width // 2)
-            #
-            # if np.max(convolution) > 500:
-            #
-            candidate_points.append([x, y])
+            if np.max(convolution) > 100:
 
-            y = update(y, kernel_height)
+                x = np.argmax(convolution) + x - (kernel_width // 2)
+                candidate_points.append([x, y])
+
+            y = update_y_condition(y, kernel_height)
 
         return left_border_points, candidate_points, right_border_points
 
     def get_lane_search_image(self):
 
         kernel_width = 30
-        kernel_height = 50
+        kernel_height = 20
         start_x, start_y = self.get_lane_starting_coordinates(kernel_width, kernel_height)
 
         search_image = np.zeros(shape=(self.image.shape + (3,)))
