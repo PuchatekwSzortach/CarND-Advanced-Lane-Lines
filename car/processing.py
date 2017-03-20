@@ -10,6 +10,11 @@ import numpy as np
 import scipy.signal
 
 
+class LaneSearchError(Exception):
+
+    pass
+
+
 class ImagePreprocessor:
     """
     Class for preprocessing images to make task of lane finding easier
@@ -337,8 +342,8 @@ class LaneLineFinder:
 
         update_ys_map = {
 
-            "up": lambda y, kernel_height: y - (kernel_height // 4),
-            "down": lambda y, kernel_height: y + (kernel_height // 4)
+            "up": lambda y, kernel_height: y - kernel_height,
+            "down": lambda y, kernel_height: y + kernel_height
         }
 
         terminate_scan_condition = terminate_scan_conditions_map[direction]
@@ -353,6 +358,8 @@ class LaneLineFinder:
             right_border_points.append([right_band_limit, y])
 
             candidate_band = self.image[y - kernel_height:y, left_band_limit: right_band_limit]
+
+            # print("Band shape {}".format(candidate_band.shape))
 
             convolution = scipy.signal.convolve2d(candidate_band, kernel, mode='valid').squeeze()
             max_convolution_response = np.max(convolution)
@@ -420,6 +427,11 @@ class LaneLineFinder:
                 start_x, start_y, self.kernel_width, self.kernel_height, direction="down")
 
         center_points = np.array(list(reversed(lower_center_points)) + upper_center_points)
+
+        if len(center_points) == 0:
+
+            raise LaneSearchError()
+
         return np.polyfit(center_points[:, 1], center_points[:, 0] + self.offset, deg=2)
 
 
@@ -448,22 +460,28 @@ class SimpleVideoProcessor:
     def get_image_with_lanes(self, image):
 
         undistorted_image = self.preprocessor.get_undistorted_image(image)
-        warped = cv2.warpPerspective(undistorted_image, self.warp_matrix, (image.shape[1], image.shape[0]))
-        mask = self.preprocessor.get_preprocessed_image(warped)
+        mask = self.preprocessor.get_preprocessed_image(image)
 
         left_finder = LaneLineFinder(mask[:, :mask.shape[1] // 2], offset=0)
         right_finder = LaneLineFinder(mask[:, (mask.shape[1] // 2):], offset=mask.shape[1] // 2)
 
-        left_lane_equation = left_finder.get_lane_equation()
-        right_lane_equation = right_finder.get_lane_equation()
+        try:
 
-        left_lane_mask = get_lane_mask(undistorted_image, left_lane_equation, self.unwarp_matrix)
-        right_lane_mask = get_lane_mask(undistorted_image, right_lane_equation, self.unwarp_matrix)
+            left_lane_equation = left_finder.get_lane_equation()
+            right_lane_equation = right_finder.get_lane_equation()
 
-        image_with_lanes = undistorted_image.copy().astype(np.float32)
+            left_lane_mask = get_lane_mask(undistorted_image, left_lane_equation, self.unwarp_matrix)
+            right_lane_mask = get_lane_mask(undistorted_image, right_lane_equation, self.unwarp_matrix)
 
-        image_with_lanes[left_lane_mask == 1] = (0, 0, 255)
-        image_with_lanes[right_lane_mask == 1] = (0, 0, 255)
+            image_with_lanes = undistorted_image.copy().astype(np.float32)
 
-        return image_with_lanes
+            image_with_lanes[left_lane_mask == 1] = (0, 255, 0)
+            image_with_lanes[right_lane_mask == 1] = (0, 255, 0)
 
+            return image_with_lanes
+
+        except LaneSearchError:
+
+            print("LaneSearchError")
+
+            return image

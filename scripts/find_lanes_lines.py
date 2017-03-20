@@ -17,8 +17,8 @@ import car.processing
 
 def find_lane_lines_in_test_images(logger):
 
-    # paths = glob.glob(os.path.join(car.config.test_images_directory, "*.jpg"))
-    paths = glob.glob(os.path.join(car.config.additional_test_images_directory, "*.jpg"))
+    paths = glob.glob(os.path.join(car.config.test_images_directory, "*.jpg"))
+    # paths = glob.glob(os.path.join(car.config.additional_test_images_directory, "*.jpg"))
 
     parameters = {
         "cropping_margins": [[350, 50], [100, 100]],
@@ -65,8 +65,8 @@ def find_lane_lines_in_test_images(logger):
 
         image_with_lanes = undistorted_image.copy().astype(np.float32)
 
-        image_with_lanes[left_lane_mask == 1] = (0, 0, 255)
-        image_with_lanes[right_lane_mask == 1] = (0, 0, 255)
+        image_with_lanes[left_lane_mask == 1] = (0, 255, 0)
+        image_with_lanes[right_lane_mask == 1] = (0, 255, 0)
 
         images = [cv2.cvtColor(undistorted_image, cv2.COLOR_BGR2RGB),
                   cv2.cvtColor(warped, cv2.COLOR_BGR2RGB), 255 * mask, search_image,
@@ -90,12 +90,12 @@ def find_lane_lines_in_videos_simple():
         "gradient_magnitude_thresholds": [10, 30],
     }
 
-    preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters)
-
-    image_shape = [720, 1280]
-
+    image_shape = (720, 1280)
     source = car.processing.get_perspective_transformation_source_coordinates(image_shape)
     destination = car.processing.get_perspective_transformation_destination_coordinates(image_shape)
+    warp_matrix = cv2.getPerspectiveTransform(source, destination)
+
+    preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters, warp_matrix)
 
     video_processor = car.processing.SimpleVideoProcessor(preprocessor, source, destination)
 
@@ -145,8 +145,8 @@ def main():
 
     logger = car.utilities.get_logger(car.config.log_path)
 
-    find_lane_lines_in_test_images(logger)
-    # # find_lane_lines_in_videos_simple()
+    # find_lane_lines_in_test_images(logger)
+    find_lane_lines_in_videos_simple()
     #
     # # get_additional_test_frames(logger)
 
