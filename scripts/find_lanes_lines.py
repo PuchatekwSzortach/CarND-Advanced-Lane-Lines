@@ -78,9 +78,12 @@ def find_lane_lines_in_test_images(logger):
         images = [cv2.cvtColor(undistorted_image, cv2.COLOR_BGR2RGB),
                   cv2.cvtColor(warped, cv2.COLOR_BGR2RGB), 255 * mask, search_image]
 
+        # logger.info(vlogging.VisualRecord(
+        #     "Image, warped, mask, left sketch, right sketch",
+        #     [cv2.resize(image, (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))) for image in images]))
+
         logger.info(vlogging.VisualRecord(
-            "Image, warped, mask, left sketch, right sketch",
-            [cv2.resize(image, (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))) for image in images]))
+            "Image, warped, mask, left sketch, right sketch", images))
 
 
 def find_lane_lines_in_videos_simple():

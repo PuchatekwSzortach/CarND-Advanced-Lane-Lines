@@ -451,7 +451,7 @@ class LaneLineFinderTwo:
 
         return x, y
 
-    def scan_up_the_image_for_line_candidates(self, x, y, kernel_width, kernel_height):
+    def scan_image_for_line_candidates(self, x, y, kernel_width, kernel_height, direction):
         """
         Scan image above starting points for lane candidates
         :return: tuple (left area border, best hit, right area border), each element of the tuple is a list of points
@@ -465,7 +465,21 @@ class LaneLineFinderTwo:
         candidate_points = []
         right_border_points = []
 
-        while y - kernel_height > 0:
+        conditions_map = {
+            "up": lambda y: y - kernel_height > 0,
+            "down": lambda y: y + kernel_height < self.image.shape[0]
+        }
+
+        update_map = {
+
+            "up": lambda y, kernel_height: y - (kernel_height // 4),
+            "down": lambda y, kernel_height: y + (kernel_height // 4)
+        }
+
+        condition = conditions_map[direction]
+        update = update_map[direction]
+
+        while condition(y):
 
             left_border_points.append([x - half_search_width, y])
             right_border_points.append([x + half_search_width, y])
@@ -473,20 +487,20 @@ class LaneLineFinderTwo:
             candidate_band = self.image[y - kernel_height:y, x - half_search_width: x + half_search_width]
             convolution = scipy.signal.convolve2d(candidate_band, kernel, mode='valid').squeeze()
 
-            x = np.argmax(convolution) + x
+            x = np.argmax(convolution) + x - (kernel_width // 2)
             #
             # if np.max(convolution) > 500:
             #
             candidate_points.append([x, y])
-            #
-            y -= kernel_height // 4
+
+            y = update(y, kernel_height)
 
         return left_border_points, candidate_points, right_border_points
 
     def get_lane_search_image(self):
 
-        kernel_width = 50
-        kernel_height = 100
+        kernel_width = 30
+        kernel_height = 50
         start_x, start_y = self.get_lane_starting_coordinates(kernel_width, kernel_height)
 
         search_image = np.zeros(shape=(self.image.shape + (3,)))
@@ -495,12 +509,25 @@ class LaneLineFinderTwo:
         # Draw starting point
         cv2.circle(search_image, (start_x, start_y), radius=15, color=(0, 255, 0), thickness=-1)
 
-        upper_left_search_border_points, upper_candidate_points, upper_right_search_border_points = \
-            self.scan_up_the_image_for_line_candidates(start_x, start_y, kernel_width, kernel_height)
+        # Scan through image for lane lines
+        upper_left_search_border_points, upper_center_points, upper_right_search_border_points = \
+            self.scan_image_for_line_candidates(start_x, start_y, kernel_width, kernel_height, direction="up")
 
-        search_polyline = upper_left_search_border_points + list(reversed(upper_right_search_border_points))
+        lower_left_search_border_points, lower_center_points, lower_right_search_border_points = \
+            self.scan_image_for_line_candidates(start_x, start_y, kernel_width, kernel_height, direction="down")
 
-        cv2.polylines(search_image, np.int32([search_polyline]), isClosed=True, color=(0, 0, 200), thickness=4)
+        # Draw search area and best fit points
+        cv2.polylines(search_image,
+                      np.int32([list(reversed(lower_left_search_border_points)) + upper_left_search_border_points]),
+                      isClosed=False, color=(0, 0, 200), thickness=4)
+
+        cv2.polylines(search_image,
+                      np.int32([list(reversed(lower_right_search_border_points)) + upper_right_search_border_points]),
+                      isClosed=False, color=(0, 0, 200), thickness=4)
+
+        cv2.polylines(search_image,
+                      np.int32([list(reversed(lower_center_points)) + upper_center_points]),
+                      isClosed=False, color=(0, 200, 0), thickness=4)
 
         return search_image
 
