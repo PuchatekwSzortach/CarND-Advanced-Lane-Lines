@@ -459,7 +459,8 @@ class LaneLineFinderTwo:
 
         kernel = np.ones((kernel_height, kernel_width))
 
-        half_search_width = kernel_width
+        original_half_search_width = kernel_width
+        current_half_search_width = original_half_search_width
 
         left_border_points = []
         candidate_points = []
@@ -481,17 +482,27 @@ class LaneLineFinderTwo:
 
         while terminate_scan_condition(y, kernel_height):
 
-            left_border_points.append([x - half_search_width, y])
-            right_border_points.append([x + half_search_width, y])
+            left_band_limit = x - current_half_search_width
+            right_band_limit = x + current_half_search_width
 
-            candidate_band = self.image[y - kernel_height:y, x - half_search_width: x + half_search_width]
+            left_border_points.append([left_band_limit, y])
+            right_border_points.append([right_band_limit, y])
+
+            candidate_band = self.image[y - kernel_height:y, left_band_limit: right_band_limit]
 
             convolution = scipy.signal.convolve2d(candidate_band, kernel, mode='valid').squeeze()
+            max_convolution_response = np.max(convolution)
 
-            if np.max(convolution) > 100:
+            if max_convolution_response > 100:
 
-                x = np.argmax(convolution) + x - (kernel_width // 2)
+                x = left_band_limit + np.argmax(convolution) + (kernel_width // 2)
                 candidate_points.append([x, y])
+
+                current_half_search_width = original_half_search_width
+
+            elif max_convolution_response == 0:
+
+                current_half_search_width = 2 * original_half_search_width
 
             y = update_y_condition(y, kernel_height)
 
