@@ -144,6 +144,7 @@ def find_lane_lines_in_videos_smooth(logger):
 
     # paths = ["./project_video.mp4", "challenge_video.mp4", "harder_challenge_video.mp4"]
     paths = ["./project_video.mp4"]
+    # paths = ["challenge_video.mp4", "harder_challenge_video.mp4"]
 
     parameters = {
         "cropping_margins": [[350, 50], [100, 100]],
@@ -176,10 +177,10 @@ def find_lane_lines_in_videos_smooth(logger):
 
         processed_clip = clip.fl_image(video_processor.get_image_with_lanes)
 
-        final_clip = moviepy.editor.clips_array([[clip, processed_clip]])
+        # final_clip = moviepy.editor.clips_array([[clip, processed_clip]])
 
         output_path = os.path.join(car.config.video_output_directory, os.path.basename(path))
-        final_clip.write_videofile(output_path, fps=12, audio=False)
+        processed_clip.write_videofile(output_path, fps=12, audio=False)
 
 
 def get_additional_test_frames(logger):

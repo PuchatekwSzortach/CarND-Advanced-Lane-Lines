@@ -502,16 +502,29 @@ class LaneLineFinder:
         left_search_border_points, center_points, right_search_border_points = \
             self.scan_image_for_line_candidates_using_prior_knowledge(recent_lane_equations)
 
-        if len(center_points) == 0 and logger is not None:
+        # If we got a very bad fit, resort to search from scratch
+        if len(center_points) < 5:
 
-            search_image = self.get_lane_search_image_using_prior_knowledge(recent_lane_equations)
+            start_x, start_y = self.get_lane_starting_coordinates()
 
+            # Scan through image for lane lines
+            _, upper_center_points, _ = \
+                self.scan_image_for_line_candidates_without_prior_knowledge(start_x, start_y, direction="up")
+
+            _, lower_center_points, _ = \
+                self.scan_image_for_line_candidates_without_prior_knowledge(start_x, start_y, direction="down")
+
+            center_points = list(reversed(lower_center_points)) + upper_center_points
+
+        if len(center_points) == 0:
+
+            search_image = self.get_lane_search_image_without_prior_knowledge()
             images = [255 * self.image, search_image]
 
             logger.info(vlogging.VisualRecord(
                 "Failed get_lane_equation_using_prior_knowledge()", images, str(self.image.shape)))
 
-            raise LaneSearchError()
+            return recent_lane_equations[-1]
 
         center_points = np.array(center_points)
         latest_equation = np.polyfit(center_points[:, 1], center_points[:, 0] + self.offset, deg=2)
@@ -547,6 +560,25 @@ def get_lane_mask(image, lane_equation, warp_matrix):
     cv2.polylines(mask, np.int32([points]), isClosed=False, color=1, thickness=20)
 
     return cv2.warpPerspective(mask, warp_matrix, (mask.shape[1], mask.shape[0]))
+
+
+def draw_lane(image, left_line_equation, right_line_equation, warp_matrix):
+
+    ys = np.linspace(0, image.shape[0])
+    left_xs = (left_line_equation[0] * (ys**2)) + (left_line_equation[1] * ys) + left_line_equation[2]
+    right_xs = (right_line_equation[0] * (ys ** 2)) + (right_line_equation[1] * ys) + right_line_equation[2]
+
+    left_polyline = list(zip(left_xs, ys))
+    right_polyline = list(zip(right_xs, ys))
+
+    polyline = left_polyline + list(reversed(right_polyline))
+
+    lane_image = np.zeros_like(image)
+    cv2.fillPoly(lane_image, np.int32([polyline]), color=(0, 255, 0))
+
+    warped_lane_image = cv2.warpPerspective(lane_image, warp_matrix, (image.shape[1], image.shape[0]))
+
+    return np.clip(image + warped_lane_image, 0, 255)
 
 
 class LaneStatisticsComputer:
@@ -675,12 +707,7 @@ class SmoothVideoProcessor:
         self.right_lane_fits.append(right_lane_equation)
 
         image_with_lanes = undistorted_image.copy().astype(np.float32)
-
-        left_lane_mask = get_lane_mask(undistorted_image, left_lane_equation, self.unwarp_matrix)
-        right_lane_mask = get_lane_mask(undistorted_image, right_lane_equation, self.unwarp_matrix)
-
-        image_with_lanes[left_lane_mask == 1] = (0, 255, 0)
-        image_with_lanes[right_lane_mask == 1] = (0, 255, 0)
+        image_with_lanes = draw_lane(image_with_lanes, left_lane_equation, right_lane_equation, self.unwarp_matrix)
 
         left_curvature = self.statistics_computer.get_line_curvature(left_lane_equation)
         right_curvature = self.statistics_computer.get_line_curvature(right_lane_equation)
