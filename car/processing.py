@@ -514,7 +514,12 @@ class LaneLineFinder:
             raise LaneSearchError()
 
         center_points = np.array(center_points)
-        return np.polyfit(center_points[:, 1], center_points[:, 0] + self.offset, deg=2)
+        latest_equation = np.polyfit(center_points[:, 1], center_points[:, 0] + self.offset, deg=2)
+
+        all_equations = collections.deque(recent_lane_equations.copy(), maxlen=len(recent_lane_equations) + 1)
+        all_equations.append(latest_equation)
+
+        return np.mean(all_equations, axis=0)
 
     def get_lane_equation(self, recent_lane_equations=(), logger=None):
 
@@ -650,8 +655,8 @@ class SmoothVideoProcessor:
         self.warp_matrix = cv2.getPerspectiveTransform(source_points, destination_points)
         self.unwarp_matrix = cv2.getPerspectiveTransform(destination_points, source_points)
 
-        self.left_lane_fits = collections.deque(maxlen=6)
-        self.right_lane_fits = collections.deque(maxlen=6)
+        self.left_lane_fits = collections.deque(maxlen=2)
+        self.right_lane_fits = collections.deque(maxlen=2)
 
         self.logger = logger
 
@@ -676,5 +681,18 @@ class SmoothVideoProcessor:
 
         image_with_lanes[left_lane_mask == 1] = (0, 255, 0)
         image_with_lanes[right_lane_mask == 1] = (0, 255, 0)
+
+        left_curvature = self.statistics_computer.get_line_curvature(left_lane_equation)
+        right_curvature = self.statistics_computer.get_line_curvature(right_lane_equation)
+        displacement = self.statistics_computer.get_lane_displacement(left_lane_equation, right_lane_equation)
+
+        cv2.putText(image_with_lanes, "Left lane curvature: {}".format(left_curvature), (100, 80),
+                    fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
+
+        cv2.putText(image_with_lanes, "Right lane curvature: {}".format(right_curvature), (100, 120),
+                    fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
+
+        cv2.putText(image_with_lanes, "Displacement from lane center: {}".format(displacement), (100, 160),
+                    fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
 
         return image_with_lanes
