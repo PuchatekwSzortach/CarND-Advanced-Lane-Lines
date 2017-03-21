@@ -78,7 +78,8 @@ def find_lane_lines_in_test_images(logger):
 
 def find_lane_lines_in_videos_simple():
 
-    paths = ["./project_video.mp4", "challenge_video.mp4", "harder_challenge_video.mp4"]
+    # paths = ["./project_video.mp4", "challenge_video.mp4", "harder_challenge_video.mp4"]
+    paths = ["./project_video.mp4"]
 
     parameters = {
         "cropping_margins": [[350, 50], [100, 100]],

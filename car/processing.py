@@ -335,9 +335,9 @@ class LaneLineFinder:
         candidate_points = []
         right_border_points = []
 
-        terminate_scan_conditions_map = {
+        continue_scan_conditions_map = {
             "up": lambda y, kernel_height: y - kernel_height > 0,
-            "down": lambda y, kernel_height: y + kernel_height < self.image.shape[0]
+            "down": lambda y, kernel_height: y < self.image.shape[0]
         }
 
         update_ys_map = {
@@ -346,10 +346,13 @@ class LaneLineFinder:
             "down": lambda y, kernel_height: y + kernel_height
         }
 
-        terminate_scan_condition = terminate_scan_conditions_map[direction]
+        continue_scan_condition = continue_scan_conditions_map[direction]
         update_y_condition = update_ys_map[direction]
 
-        while terminate_scan_condition(y, kernel_height):
+        # If needed change y so that matching wouldn't lead outside of image coordinates
+        y = np.clip(y, kernel_height, self.image.shape[0])
+
+        while continue_scan_condition(y, kernel_height) is True:
 
             left_band_limit = x - current_half_search_width
             right_band_limit = x + current_half_search_width
@@ -359,7 +362,10 @@ class LaneLineFinder:
 
             candidate_band = self.image[y - kernel_height:y, left_band_limit: right_band_limit]
 
+            # print("y, x is : {}, {}".format(y, x))
+            # print("Image shape is: {}".format(self.image.shape))
             # print("Band shape {}".format(candidate_band.shape))
+            # print("Left band limit, right band limit: {}, {}".format(left_band_limit, right_band_limit))
 
             convolution = scipy.signal.convolve2d(candidate_band, kernel, mode='valid').squeeze()
             max_convolution_response = np.max(convolution)
