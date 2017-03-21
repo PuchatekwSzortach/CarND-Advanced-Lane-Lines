@@ -350,7 +350,7 @@ class LaneLineFinder:
         update_y_condition = update_ys_map[direction]
 
         # If needed change y so that matching wouldn't lead outside of image coordinates
-        y = np.clip(y, kernel_height, self.image.shape[0])
+        y = np.clip(y, kernel_height, self.image.shape[0] - kernel_height)
 
         while continue_scan_condition(y, kernel_height) is True:
 
@@ -456,15 +456,15 @@ def get_lane_mask(image, lane_equation, warp_matrix):
 
 class LaneStatisticsComputer:
 
-    def __init__(self, image):
+    def __init__(self, image_shape, metres_per_pixel_width, metres_per_pixel_height):
 
-        self.image = image
-        self.metres_per_pixel_width = 3.7/1000
-        self.metres_per_pixel_height = 30/300
+        self.image_shape = image_shape
+        self.metres_per_pixel_width = metres_per_pixel_width
+        self.metres_per_pixel_height = metres_per_pixel_height
 
     def get_line_curvature(self, line_equation):
 
-        y = self.image.shape[0]
+        y = self.image_shape[0]
 
         # Line equation coefficients
         a = line_equation[0]
@@ -479,9 +479,10 @@ class LaneStatisticsComputer:
 
 class SimpleVideoProcessor:
 
-    def __init__(self, preprocessor, source_points, destination_points):
+    def __init__(self, preprocessor, statistics_computer, source_points, destination_points):
 
         self.preprocessor = preprocessor
+        self.statistics_computer = statistics_computer
 
         self.warp_matrix = cv2.getPerspectiveTransform(source_points, destination_points)
         self.unwarp_matrix = cv2.getPerspectiveTransform(destination_points, source_points)
@@ -506,6 +507,15 @@ class SimpleVideoProcessor:
 
             image_with_lanes[left_lane_mask == 1] = (0, 255, 0)
             image_with_lanes[right_lane_mask == 1] = (0, 255, 0)
+
+            left_curvature = self.statistics_computer.get_line_curvature(left_lane_equation)
+            right_curvature = self.statistics_computer.get_line_curvature(right_lane_equation)
+
+            cv2.putText(image_with_lanes, "Left lane curvature: {}".format(left_curvature), (100, 80),
+                        fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
+
+            cv2.putText(image_with_lanes, "Right lane curvature: {}".format(right_curvature), (100, 120),
+                        fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
 
             return image_with_lanes
 

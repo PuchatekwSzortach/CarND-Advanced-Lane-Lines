@@ -39,6 +39,11 @@ def find_lane_lines_in_test_images(logger):
 
     preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters, warp_matrix)
 
+    statistics_computer = car.processing.LaneStatisticsComputer(
+        image_shape,
+        metres_per_pixel_width=car.config.metres_per_pixel_width,
+        metres_per_pixel_height=car.config.metres_per_pixel_height)
+
     # start = time.time()
 
     for path in paths:
@@ -71,7 +76,6 @@ def find_lane_lines_in_test_images(logger):
         image_with_lanes[left_lane_mask == 1] = (0, 255, 0)
         image_with_lanes[right_lane_mask == 1] = (0, 255, 0)
 
-        statistics_computer = car.processing.LaneStatisticsComputer(image)
         left_curvature = statistics_computer.get_line_curvature(left_lane_equation)
         right_curvature = statistics_computer.get_line_curvature(right_lane_equation)
 
@@ -113,7 +117,12 @@ def find_lane_lines_in_videos_simple():
 
     preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters, warp_matrix)
 
-    video_processor = car.processing.SimpleVideoProcessor(preprocessor, source, destination)
+    statistics_computer = car.processing.LaneStatisticsComputer(
+        image_shape,
+        metres_per_pixel_width=car.config.metres_per_pixel_width,
+        metres_per_pixel_height=car.config.metres_per_pixel_height)
+
+    video_processor = car.processing.SimpleVideoProcessor(preprocessor, statistics_computer, source, destination)
 
     for path in paths:
 
@@ -161,8 +170,8 @@ def main():
 
     logger = car.utilities.get_logger(car.config.log_path)
 
-    find_lane_lines_in_test_images(logger)
-    # find_lane_lines_in_videos_simple()
+    # find_lane_lines_in_test_images(logger)
+    find_lane_lines_in_videos_simple()
     #
     # # get_additional_test_frames(logger)
 
