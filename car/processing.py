@@ -9,6 +9,7 @@ import collections
 import cv2
 import numpy as np
 import scipy.signal
+import vlogging
 
 
 class LaneSearchError(Exception):
@@ -436,9 +437,11 @@ class LaneLineFinder:
 
         return np.polyfit(center_points[:, 1], center_points[:, 0] + self.offset, deg=2)
 
-    def get_lane_equation_using_prior_knowledge(self, recent_lane_equations):
+    def get_lane_equation_using_prior_knowledge(self, recent_lane_equations, logger):
 
         kernel = np.ones((self.kernel_height, self.kernel_width))
+
+        candidate_points = []
 
         y = self.kernel_height
         half_search_width = self.kernel_width
@@ -446,14 +449,34 @@ class LaneLineFinder:
         while y < self.image.shape[0]:
 
             old_x_center = self.get_x(recent_lane_equations[-1], y)
-            left_x = old_x_center - half_search_width
-            right_x = old_x_center + half_search_width
+            left_band_limit = old_x_center - half_search_width
+            right_band_limit = old_x_center + half_search_width
+
+            candidate_band = self.image[y - self.kernel_height:y, left_band_limit: right_band_limit]
+
+            response = scipy.signal.correlate2d(candidate_band, kernel, mode='valid').squeeze()
+            max_response = np.max(response)
+
+            if max_response > 100:
+
+                x = left_band_limit + np.argmax(response) + (self.kernel_width // 2)
+                candidate_points.append([x, y])
 
             y += self.kernel_height
 
-        return recent_lane_equations[-1]
+        if len(candidate_points) == 0 and logger is not None:
 
-    def get_lane_equation(self, recent_lane_equations=()):
+            images = [255 * self.image]
+
+            logger.info(vlogging.VisualRecord(
+                "Failed get_lane_equation_using_prior_knowledge()", images, str(self.image.shape)))
+
+            raise LaneSearchError()
+
+        candidate_points = np.array(candidate_points)
+        return np.polyfit(candidate_points[:, 1], candidate_points[:, 0] + self.offset, deg=2)
+
+    def get_lane_equation(self, recent_lane_equations=(), logger=None):
 
         if len(recent_lane_equations) == 0:
 
@@ -461,7 +484,7 @@ class LaneLineFinder:
 
         else:
 
-            return self.get_lane_equation_using_prior_knowledge(recent_lane_equations)
+            return self.get_lane_equation_using_prior_knowledge(recent_lane_equations, logger)
 
     def get_x(self, lane_equation, y):
 
@@ -579,7 +602,7 @@ class SmoothVideoProcessor:
     Video processor that searches for lane lines. A history of recent results is used when searching for lane lines
     """
 
-    def __init__(self, preprocessor, statistics_computer, source_points, destination_points):
+    def __init__(self, preprocessor, statistics_computer, source_points, destination_points, logger):
 
         self.preprocessor = preprocessor
         self.statistics_computer = statistics_computer
@@ -590,6 +613,8 @@ class SmoothVideoProcessor:
         self.left_lane_fits = collections.deque(maxlen=6)
         self.right_lane_fits = collections.deque(maxlen=6)
 
+        self.logger = logger
+
     def get_image_with_lanes(self, image):
 
         undistorted_image = self.preprocessor.get_undistorted_image(image)
@@ -598,8 +623,8 @@ class SmoothVideoProcessor:
         left_finder = LaneLineFinder(mask[:, :mask.shape[1] // 2], offset=0)
         right_finder = LaneLineFinder(mask[:, (mask.shape[1] // 2):], offset=mask.shape[1] // 2)
 
-        left_lane_equation = left_finder.get_lane_equation(self.left_lane_fits)
-        right_lane_equation = right_finder.get_lane_equation(self.right_lane_fits)
+        left_lane_equation = left_finder.get_lane_equation(self.left_lane_fits, logger=self.logger)
+        right_lane_equation = right_finder.get_lane_equation(self.right_lane_fits, logger=self.logger)
 
         self.left_lane_fits.append(left_lane_equation)
         self.right_lane_fits.append(right_lane_equation)

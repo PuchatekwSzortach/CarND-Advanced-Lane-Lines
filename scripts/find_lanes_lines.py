@@ -140,7 +140,7 @@ def find_lane_lines_in_videos_simple():
         final_clip.write_videofile(output_path, fps=12, audio=False)
 
 
-def find_lane_lines_in_videos_smooth():
+def find_lane_lines_in_videos_smooth(logger):
 
     # paths = ["./project_video.mp4", "challenge_video.mp4", "harder_challenge_video.mp4"]
     paths = ["./project_video.mp4"]
@@ -167,7 +167,8 @@ def find_lane_lines_in_videos_smooth():
         metres_per_pixel_width=car.config.metres_per_pixel_width,
         metres_per_pixel_height=car.config.metres_per_pixel_height)
 
-    video_processor = car.processing.SmoothVideoProcessor(preprocessor, statistics_computer, source, destination)
+    video_processor = car.processing.SmoothVideoProcessor(
+        preprocessor, statistics_computer, source, destination, logger)
 
     for path in paths:
 
@@ -218,7 +219,7 @@ def main():
 
     # find_lane_lines_in_test_images(logger)
     # find_lane_lines_in_videos_simple()
-    find_lane_lines_in_videos_smooth()
+    find_lane_lines_in_videos_smooth(logger)
     #
     # # get_additional_test_frames(logger)
 
