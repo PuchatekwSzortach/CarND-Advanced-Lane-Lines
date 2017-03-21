@@ -4,10 +4,12 @@ Module with image processing code
 
 import pickle
 import pprint
+import collections
 
 import cv2
 import numpy as np
 import scipy.signal
+import vlogging
 
 
 class LaneSearchError(Exception):
@@ -299,10 +301,10 @@ class LaneLineFinder:
         self.kernel_width = 30
         self.kernel_height = 20
 
-    def get_lane_starting_coordinates(self, kernel_width, kernel_height):
+    def get_lane_starting_coordinates(self):
 
         # Compute vertical histogram to find x with largest response
-        kernel = np.ones((self.image.shape[0], kernel_width))
+        kernel = np.ones((self.image.shape[0], self.kernel_width))
 
         histogram = scipy.signal.convolve2d(self.image, kernel, mode='valid').squeeze().astype(np.int32)
         peak = np.argmax(histogram)
@@ -310,8 +312,8 @@ class LaneLineFinder:
         x = peak + (kernel.shape[1] // 2)
 
         # For selected x compute y that has most white pixels
-        column_image = self.image[:, x - (kernel_width//2): x + (kernel_width//2)]
-        kernel = np.ones((kernel_height, column_image.shape[1]))
+        column_image = self.image[:, x - (self.kernel_width//2): x + (self.kernel_width//2)]
+        kernel = np.ones((self.kernel_height, column_image.shape[1]))
 
         histogram = scipy.signal.convolve2d(column_image, kernel, mode='valid').squeeze().astype(np.int32)
         peak = np.argmax(histogram)
@@ -320,15 +322,15 @@ class LaneLineFinder:
 
         return x, y
 
-    def scan_image_for_line_candidates(self, x, y, kernel_width, kernel_height, direction):
+    def scan_image_for_line_candidates_without_prior_knowledge(self, x, y, direction):
         """
         Scan image above starting points for lane candidates
         :return: tuple (left area border, best hit, right area border), each element of the tuple is a list of points
         """
 
-        kernel = np.ones((kernel_height, kernel_width))
+        kernel = np.ones((self.kernel_height, self.kernel_width))
 
-        original_half_search_width = kernel_width
+        original_half_search_width = self.kernel_width
         current_half_search_width = original_half_search_width
 
         left_border_points = []
@@ -350,9 +352,9 @@ class LaneLineFinder:
         update_y_condition = update_ys_map[direction]
 
         # If needed change y so that matching wouldn't lead outside of image coordinates
-        y = np.clip(y, kernel_height, self.image.shape[0] - kernel_height)
+        y = np.clip(y, self.kernel_height, self.image.shape[0] - self.kernel_height)
 
-        while continue_scan_condition(y, kernel_height) is True:
+        while continue_scan_condition(y, self.kernel_height) is True:
 
             left_band_limit = x - current_half_search_width
             right_band_limit = x + current_half_search_width
@@ -360,19 +362,14 @@ class LaneLineFinder:
             left_border_points.append([left_band_limit, y])
             right_border_points.append([right_band_limit, y])
 
-            candidate_band = self.image[y - kernel_height:y, left_band_limit: right_band_limit]
-
-            # print("y, x is : {}, {}".format(y, x))
-            # print("Image shape is: {}".format(self.image.shape))
-            # print("Band shape {}".format(candidate_band.shape))
-            # print("Left band limit, right band limit: {}, {}".format(left_band_limit, right_band_limit))
+            candidate_band = self.image[y - self.kernel_height:y, left_band_limit: right_band_limit]
 
             response = scipy.signal.correlate2d(candidate_band, kernel, mode='valid').squeeze()
             max_response = np.max(response)
 
             if max_response > 100:
 
-                x = left_band_limit + np.argmax(response) + (kernel_width // 2)
+                x = left_band_limit + np.argmax(response) + (self.kernel_width // 2)
                 candidate_points.append([x, y])
 
                 current_half_search_width = original_half_search_width
@@ -381,13 +378,53 @@ class LaneLineFinder:
 
                 current_half_search_width = 2 * original_half_search_width
 
-            y = update_y_condition(y, kernel_height)
+            y = update_y_condition(y, self.kernel_height)
 
         return left_border_points, candidate_points, right_border_points
 
-    def get_lane_search_image(self):
+    def scan_image_for_line_candidates_using_prior_knowledge(self, recent_lane_equations):
+        """
+        Scan image above starting points for lane candidates
+        :return: tuple (left area border, best hit, right area border), each element of the tuple is a list of points
+        """
 
-        start_x, start_y = self.get_lane_starting_coordinates(self.kernel_width, self.kernel_height)
+        kernel = np.ones((self.kernel_height, self.kernel_width))
+
+        half_search_width = self.kernel_width
+
+        left_border_points = []
+        candidate_points = []
+        right_border_points = []
+
+        # If needed change y so that matching wouldn't lead outside of image coordinates
+        y = self.kernel_height
+
+        while y < self.image.shape[0]:
+
+            old_x_center = self.get_x(recent_lane_equations[-1], y) - self.offset
+            left_band_limit = old_x_center - half_search_width
+            right_band_limit = old_x_center + half_search_width
+
+            left_border_points.append([left_band_limit, y])
+            right_border_points.append([right_band_limit, y])
+
+            candidate_band = self.image[y - self.kernel_height:y, left_band_limit: right_band_limit]
+
+            response = scipy.signal.correlate2d(candidate_band, kernel, mode='valid').squeeze()
+            max_response = np.max(response)
+
+            if max_response > 100:
+
+                x = left_band_limit + np.argmax(response) + (self.kernel_width // 2)
+                candidate_points.append([x, y])
+
+            y += self.kernel_height
+
+        return left_border_points, candidate_points, right_border_points
+
+    def get_lane_search_image_without_prior_knowledge(self):
+
+        start_x, start_y = self.get_lane_starting_coordinates()
 
         search_image = np.zeros(shape=(self.image.shape + (3,)))
         search_image[:, :, 0] = 255 * self.image
@@ -397,12 +434,10 @@ class LaneLineFinder:
 
         # Scan through image for lane lines
         upper_left_search_border_points, upper_center_points, upper_right_search_border_points = \
-            self.scan_image_for_line_candidates(
-                start_x, start_y, self.kernel_width, self.kernel_height, direction="up")
+            self.scan_image_for_line_candidates_without_prior_knowledge(start_x, start_y, direction="up")
 
         lower_left_search_border_points, lower_center_points, lower_right_search_border_points = \
-            self.scan_image_for_line_candidates(
-                start_x, start_y, self.kernel_width, self.kernel_height, direction="down")
+            self.scan_image_for_line_candidates_without_prior_knowledge(start_x, start_y, direction="down")
 
         # Draw search area and best fit points
         cv2.polylines(search_image,
@@ -419,26 +454,99 @@ class LaneLineFinder:
 
         return search_image
 
-    def get_lane_equation(self):
+    def get_lane_equation_without_prior_knowledge(self):
 
-        start_x, start_y = self.get_lane_starting_coordinates(self.kernel_width, self.kernel_height)
+        start_x, start_y = self.get_lane_starting_coordinates()
 
         # Scan through image for lane lines
         _, upper_center_points, _ = \
-            self.scan_image_for_line_candidates(
-                start_x, start_y, self.kernel_width, self.kernel_height, direction="up")
+            self.scan_image_for_line_candidates_without_prior_knowledge(start_x, start_y, direction="up")
 
         _, lower_center_points, _ = \
-            self.scan_image_for_line_candidates(
-                start_x, start_y, self.kernel_width, self.kernel_height, direction="down")
+            self.scan_image_for_line_candidates_without_prior_knowledge(start_x, start_y, direction="down")
 
         center_points = np.array(list(reversed(lower_center_points)) + upper_center_points)
 
         if len(center_points) == 0:
-
             raise LaneSearchError()
 
         return np.polyfit(center_points[:, 1], center_points[:, 0] + self.offset, deg=2)
+
+    def get_lane_search_image_using_prior_knowledge(self, recent_lane_equations):
+
+        search_image = np.zeros(shape=(self.image.shape + (3,)))
+        search_image[:, :, 0] = 255 * self.image
+
+        # Scan through image for lane lines
+        left_search_border_points, center_points, right_search_border_points = \
+            self.scan_image_for_line_candidates_using_prior_knowledge(recent_lane_equations)
+
+        # Draw search area and best fit points
+        cv2.polylines(search_image,
+                      np.int32([left_search_border_points]),
+                      isClosed=False, color=(0, 0, 200), thickness=4)
+
+        cv2.polylines(search_image,
+                      np.int32([right_search_border_points]),
+                      isClosed=False, color=(0, 0, 200), thickness=4)
+
+        cv2.polylines(search_image,
+                      np.int32([center_points]),
+                      isClosed=False, color=(0, 200, 0), thickness=4)
+
+        return search_image
+
+    def get_lane_equation_using_prior_knowledge(self, recent_lane_equations, logger):
+
+        # Scan through image for lane lines
+        left_search_border_points, center_points, right_search_border_points = \
+            self.scan_image_for_line_candidates_using_prior_knowledge(recent_lane_equations)
+
+        # If we got a very bad fit, resort to search from scratch
+        if len(center_points) < 5:
+
+            start_x, start_y = self.get_lane_starting_coordinates()
+
+            # Scan through image for lane lines
+            _, upper_center_points, _ = \
+                self.scan_image_for_line_candidates_without_prior_knowledge(start_x, start_y, direction="up")
+
+            _, lower_center_points, _ = \
+                self.scan_image_for_line_candidates_without_prior_knowledge(start_x, start_y, direction="down")
+
+            center_points = list(reversed(lower_center_points)) + upper_center_points
+
+        if len(center_points) == 0:
+
+            search_image = self.get_lane_search_image_without_prior_knowledge()
+            images = [255 * self.image, search_image]
+
+            logger.info(vlogging.VisualRecord(
+                "Failed get_lane_equation_using_prior_knowledge()", images, str(self.image.shape)))
+
+            return recent_lane_equations[-1]
+
+        center_points = np.array(center_points)
+        latest_equation = np.polyfit(center_points[:, 1], center_points[:, 0] + self.offset, deg=2)
+
+        all_equations = collections.deque(recent_lane_equations.copy(), maxlen=len(recent_lane_equations) + 1)
+        all_equations.append(latest_equation)
+
+        return np.mean(all_equations, axis=0)
+
+    def get_lane_equation(self, recent_lane_equations=(), logger=None):
+
+        if len(recent_lane_equations) == 0:
+
+            return self.get_lane_equation_without_prior_knowledge()
+
+        else:
+
+            return self.get_lane_equation_using_prior_knowledge(recent_lane_equations, logger)
+
+    def get_x(self, lane_equation, y):
+
+        return int((lane_equation[0] * (y**2)) + (lane_equation[1] * y) + lane_equation[2])
 
 
 def get_lane_mask(image, lane_equation, warp_matrix):
@@ -452,6 +560,25 @@ def get_lane_mask(image, lane_equation, warp_matrix):
     cv2.polylines(mask, np.int32([points]), isClosed=False, color=1, thickness=20)
 
     return cv2.warpPerspective(mask, warp_matrix, (mask.shape[1], mask.shape[0]))
+
+
+def draw_lane(image, left_line_equation, right_line_equation, warp_matrix):
+
+    ys = np.linspace(0, image.shape[0])
+    left_xs = (left_line_equation[0] * (ys**2)) + (left_line_equation[1] * ys) + left_line_equation[2]
+    right_xs = (right_line_equation[0] * (ys ** 2)) + (right_line_equation[1] * ys) + right_line_equation[2]
+
+    left_polyline = list(zip(left_xs, ys))
+    right_polyline = list(zip(right_xs, ys))
+
+    polyline = left_polyline + list(reversed(right_polyline))
+
+    lane_image = np.zeros_like(image)
+    cv2.fillPoly(lane_image, np.int32([polyline]), color=(0, 255, 0))
+
+    warped_lane_image = cv2.warpPerspective(lane_image, warp_matrix, (image.shape[1], image.shape[0]))
+
+    return np.clip(image + warped_lane_image, 0, 255)
 
 
 class LaneStatisticsComputer:
@@ -492,6 +619,9 @@ class LaneStatisticsComputer:
 
 
 class SimpleVideoProcessor:
+    """
+    Video processor that searches for lane lines. Each frame is processed separately.
+    """
 
     def __init__(self, preprocessor, statistics_computer, source_points, destination_points):
 
@@ -542,3 +672,54 @@ class SimpleVideoProcessor:
             print("LaneSearchError")
 
             return image
+
+
+class SmoothVideoProcessor:
+    """
+    Video processor that searches for lane lines. A history of recent results is used when searching for lane lines
+    """
+
+    def __init__(self, preprocessor, statistics_computer, source_points, destination_points, logger):
+
+        self.preprocessor = preprocessor
+        self.statistics_computer = statistics_computer
+
+        self.warp_matrix = cv2.getPerspectiveTransform(source_points, destination_points)
+        self.unwarp_matrix = cv2.getPerspectiveTransform(destination_points, source_points)
+
+        self.left_lane_fits = collections.deque(maxlen=2)
+        self.right_lane_fits = collections.deque(maxlen=2)
+
+        self.logger = logger
+
+    def get_image_with_lanes(self, image):
+
+        undistorted_image = self.preprocessor.get_undistorted_image(image)
+        mask = self.preprocessor.get_preprocessed_image(image)
+
+        left_finder = LaneLineFinder(mask[:, :mask.shape[1] // 2], offset=0)
+        right_finder = LaneLineFinder(mask[:, (mask.shape[1] // 2):], offset=mask.shape[1] // 2)
+
+        left_lane_equation = left_finder.get_lane_equation(self.left_lane_fits, logger=self.logger)
+        right_lane_equation = right_finder.get_lane_equation(self.right_lane_fits, logger=self.logger)
+
+        self.left_lane_fits.append(left_lane_equation)
+        self.right_lane_fits.append(right_lane_equation)
+
+        image_with_lanes = undistorted_image.copy().astype(np.float32)
+        image_with_lanes = draw_lane(image_with_lanes, left_lane_equation, right_lane_equation, self.unwarp_matrix)
+
+        left_curvature = self.statistics_computer.get_line_curvature(left_lane_equation)
+        right_curvature = self.statistics_computer.get_line_curvature(right_lane_equation)
+        displacement = self.statistics_computer.get_lane_displacement(left_lane_equation, right_lane_equation)
+
+        cv2.putText(image_with_lanes, "Left lane curvature: {}".format(left_curvature), (100, 80),
+                    fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
+
+        cv2.putText(image_with_lanes, "Right lane curvature: {}".format(right_curvature), (100, 120),
+                    fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
+
+        cv2.putText(image_with_lanes, "Displacement from lane center: {}".format(displacement), (100, 160),
+                    fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
+
+        return image_with_lanes
