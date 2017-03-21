@@ -4,6 +4,7 @@ Module with image processing code
 
 import pickle
 import pprint
+import collections
 
 import cv2
 import numpy as np
@@ -419,7 +420,7 @@ class LaneLineFinder:
 
         return search_image
 
-    def get_lane_equation(self):
+    def get_lane_equation(self, recents_fits=[]):
 
         start_x, start_y = self.get_lane_starting_coordinates(self.kernel_width, self.kernel_height)
 
@@ -492,6 +493,9 @@ class LaneStatisticsComputer:
 
 
 class SimpleVideoProcessor:
+    """
+    Video processor that searches for lane lines. Each frame is processed separately.
+    """
 
     def __init__(self, preprocessor, statistics_computer, source_points, destination_points):
 
@@ -542,3 +546,44 @@ class SimpleVideoProcessor:
             print("LaneSearchError")
 
             return image
+
+
+class SmoothVideoProcessor:
+    """
+    Video processor that searches for lane lines. A history of recent results is used when searching for lane lines
+    """
+
+    def __init__(self, preprocessor, statistics_computer, source_points, destination_points):
+
+        self.preprocessor = preprocessor
+        self.statistics_computer = statistics_computer
+
+        self.warp_matrix = cv2.getPerspectiveTransform(source_points, destination_points)
+        self.unwarp_matrix = cv2.getPerspectiveTransform(destination_points, source_points)
+
+        self.left_lane_fits = collections.deque(maxlen=6)
+        self.right_lane_fits = collections.deque(maxlen=6)
+
+    def get_image_with_lanes(self, image):
+
+        undistorted_image = self.preprocessor.get_undistorted_image(image)
+        mask = self.preprocessor.get_preprocessed_image(image)
+
+        left_finder = LaneLineFinder(mask[:, :mask.shape[1] // 2], offset=0)
+        right_finder = LaneLineFinder(mask[:, (mask.shape[1] // 2):], offset=mask.shape[1] // 2)
+
+        left_lane_equation = left_finder.get_lane_equation(self.left_lane_fits)
+        right_lane_equation = right_finder.get_lane_equation(self.right_lane_fits)
+
+        self.left_lane_fits.append(left_lane_equation)
+        self.right_lane_fits.append(right_lane_equation)
+
+        image_with_lanes = undistorted_image.copy().astype(np.float32)
+
+        left_lane_mask = get_lane_mask(undistorted_image, left_lane_equation, self.unwarp_matrix)
+        right_lane_mask = get_lane_mask(undistorted_image, right_lane_equation, self.unwarp_matrix)
+
+        image_with_lanes[left_lane_mask == 1] = (0, 255, 0)
+        image_with_lanes[right_lane_mask == 1] = (0, 255, 0)
+
+        return image_with_lanes

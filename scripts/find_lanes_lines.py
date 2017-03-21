@@ -140,6 +140,48 @@ def find_lane_lines_in_videos_simple():
         final_clip.write_videofile(output_path, fps=12, audio=False)
 
 
+def find_lane_lines_in_videos_smooth():
+
+    # paths = ["./project_video.mp4", "challenge_video.mp4", "harder_challenge_video.mp4"]
+    paths = ["./project_video.mp4"]
+
+    parameters = {
+        "cropping_margins": [[350, 50], [100, 100]],
+        "saturation_thresholds": [100, 255],
+        "x_gradient_thresholds": [30, 255],
+        "x_gradient_kernel_size": 9,
+        "y_gradient_thresholds": [10, 50],
+        "y_gradient_kernel_size": 9,
+        "gradient_magnitude_thresholds": [10, 30],
+    }
+
+    image_shape = (720, 1280)
+    source = car.processing.get_perspective_transformation_source_coordinates(image_shape)
+    destination = car.processing.get_perspective_transformation_destination_coordinates(image_shape)
+    warp_matrix = cv2.getPerspectiveTransform(source, destination)
+
+    preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters, warp_matrix)
+
+    statistics_computer = car.processing.LaneStatisticsComputer(
+        image_shape,
+        metres_per_pixel_width=car.config.metres_per_pixel_width,
+        metres_per_pixel_height=car.config.metres_per_pixel_height)
+
+    video_processor = car.processing.SmoothVideoProcessor(preprocessor, statistics_computer, source, destination)
+
+    for path in paths:
+
+        print("We are only processing a subclip!".upper())
+        clip = moviepy.editor.VideoFileClip(path).subclip(15, 27)
+
+        processed_clip = clip.fl_image(video_processor.get_image_with_lanes)
+
+        final_clip = moviepy.editor.clips_array([[clip, processed_clip]])
+
+        output_path = os.path.join(car.config.video_output_directory, os.path.basename(path))
+        final_clip.write_videofile(output_path, fps=12, audio=False)
+
+
 def get_additional_test_frames(logger):
 
     parameters = {
@@ -174,8 +216,9 @@ def main():
 
     logger = car.utilities.get_logger(car.config.log_path)
 
-    find_lane_lines_in_test_images(logger)
+    # find_lane_lines_in_test_images(logger)
     # find_lane_lines_in_videos_simple()
+    find_lane_lines_in_videos_smooth()
     #
     # # get_additional_test_frames(logger)
 
