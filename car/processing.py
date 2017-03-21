@@ -336,8 +336,8 @@ class LaneLineFinder:
         right_border_points = []
 
         continue_scan_conditions_map = {
-            "up": lambda y, kernel_height: y - kernel_height > 0,
-            "down": lambda y, kernel_height: y < self.image.shape[0]
+            "up": lambda y, kernel_height: bool(y - kernel_height > 0),
+            "down": lambda y, kernel_height: bool(y < self.image.shape[0])
         }
 
         update_ys_map = {
@@ -369,6 +369,8 @@ class LaneLineFinder:
 
             convolution = scipy.signal.convolve2d(candidate_band, kernel, mode='valid').squeeze()
             max_convolution_response = np.max(convolution)
+
+            # print(max_convolution_response)
 
             if max_convolution_response > 100:
 
