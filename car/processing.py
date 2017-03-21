@@ -420,7 +420,7 @@ class LaneLineFinder:
 
         return search_image
 
-    def get_lane_equation(self, recents_fits=[]):
+    def get_lane_equation_without_prior_knowledge(self):
 
         start_x, start_y = self.get_lane_starting_coordinates(self.kernel_width, self.kernel_height)
 
@@ -436,10 +436,40 @@ class LaneLineFinder:
         center_points = np.array(list(reversed(lower_center_points)) + upper_center_points)
 
         if len(center_points) == 0:
-
             raise LaneSearchError()
 
         return np.polyfit(center_points[:, 1], center_points[:, 0] + self.offset, deg=2)
+
+    def get_lane_equation_using_prior_knowledge(self, recent_lane_equations):
+
+        kernel = np.ones((self.kernel_height, self.kernel_width))
+
+        y = self.kernel_height
+        half_search_width = self.kernel_width
+
+        while y < self.image.shape[0]:
+
+            old_x_center = self.get_x(recent_lane_equations[-1], y)
+            left_x = old_x_center - half_search_width
+            right_x = old_x_center + half_search_width
+
+            y += self.kernel_height
+
+        return recent_lane_equations[-1]
+
+    def get_lane_equation(self, recent_lane_equations=()):
+
+        if len(recent_lane_equations) == 0:
+
+            return self.get_lane_equation_without_prior_knowledge()
+
+        else:
+
+            return self.get_lane_equation_using_prior_knowledge(recent_lane_equations)
+
+    def get_x(self, lane_equation, y):
+
+        return int((lane_equation[0] * (y**2)) + (lane_equation[1] * y) + lane_equation[2])
 
 
 def get_lane_mask(image, lane_equation, warp_matrix):
