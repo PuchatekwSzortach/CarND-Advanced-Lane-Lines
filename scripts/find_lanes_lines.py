@@ -71,6 +71,9 @@ def find_lane_lines_in_test_images(logger):
         image_with_lanes[left_lane_mask == 1] = (0, 255, 0)
         image_with_lanes[right_lane_mask == 1] = (0, 255, 0)
 
+        cv2.putText(image_with_lanes, "Some text", (100, 100), fontFace=cv2.FONT_HERSHEY_DUPLEX,
+                    fontScale=4, color=(0, 255, 0))
+
         images = [cv2.cvtColor(undistorted_image, cv2.COLOR_BGR2RGB),
                   cv2.cvtColor(warped, cv2.COLOR_BGR2RGB), 255 * mask, search_image,
                   cv2.cvtColor(image_with_lanes, cv2.COLOR_BGR2RGB)]
