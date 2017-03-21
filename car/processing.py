@@ -370,11 +370,7 @@ class LaneLineFinder:
             response = scipy.signal.correlate2d(candidate_band, kernel, mode='valid').squeeze()
             max_response = np.max(response)
 
-            # print(max_convolution_response)
-
             if max_response > 100:
-
-                # print(max_convolution_response)
 
                 x = left_band_limit + np.argmax(response) + (kernel_width // 2)
                 candidate_points.append([x, y])
