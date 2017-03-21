@@ -367,19 +367,21 @@ class LaneLineFinder:
             # print("Band shape {}".format(candidate_band.shape))
             # print("Left band limit, right band limit: {}, {}".format(left_band_limit, right_band_limit))
 
-            convolution = scipy.signal.convolve2d(candidate_band, kernel, mode='valid').squeeze()
-            max_convolution_response = np.max(convolution)
+            response = scipy.signal.correlate2d(candidate_band, kernel, mode='valid').squeeze()
+            max_response = np.max(response)
 
             # print(max_convolution_response)
 
-            if max_convolution_response > 100:
+            if max_response > 100:
 
-                x = left_band_limit + np.argmax(convolution) + (kernel_width // 2)
+                # print(max_convolution_response)
+
+                x = left_band_limit + np.argmax(response) + (kernel_width // 2)
                 candidate_points.append([x, y])
 
                 current_half_search_width = original_half_search_width
 
-            elif max_convolution_response == 0:
+            elif max_response == 0:
 
                 current_half_search_width = 2 * original_half_search_width
 

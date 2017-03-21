@@ -4,6 +4,7 @@ Script for finding lane lines
 
 import glob
 import os
+import time
 
 import cv2
 import vlogging
@@ -37,6 +38,8 @@ def find_lane_lines_in_test_images(logger):
     unwarp_matrix = cv2.getPerspectiveTransform(destination, source)
 
     preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters, warp_matrix)
+
+    # start = time.time()
 
     for path in paths:
 
@@ -74,6 +77,8 @@ def find_lane_lines_in_test_images(logger):
 
         logger.info(vlogging.VisualRecord(
             "Image, warped, mask, search, lanes", images))
+
+    # print("Computation time: {}".format(time.time() - start))
 
 
 def find_lane_lines_in_videos_simple():
