@@ -39,6 +39,11 @@ def find_lane_lines_in_test_images(logger):
 
     preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters, warp_matrix)
 
+    statistics_computer = car.processing.LaneStatisticsComputer(
+        image_shape,
+        metres_per_pixel_width=car.config.metres_per_pixel_width,
+        metres_per_pixel_height=car.config.metres_per_pixel_height)
+
     # start = time.time()
 
     for path in paths:
@@ -70,6 +75,19 @@ def find_lane_lines_in_test_images(logger):
 
         image_with_lanes[left_lane_mask == 1] = (0, 255, 0)
         image_with_lanes[right_lane_mask == 1] = (0, 255, 0)
+
+        left_curvature = statistics_computer.get_line_curvature(left_lane_equation)
+        right_curvature = statistics_computer.get_line_curvature(right_lane_equation)
+        displacement = statistics_computer.get_lane_displacement(left_lane_equation, right_lane_equation)
+
+        cv2.putText(image_with_lanes, "Left lane curvature: {}".format(left_curvature), (100, 80),
+                    fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
+
+        cv2.putText(image_with_lanes, "Right lane curvature: {}".format(right_curvature), (100, 120),
+                    fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
+
+        cv2.putText(image_with_lanes, "Displacement from lane center: {}".format(displacement), (100, 160),
+                    fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
 
         images = [cv2.cvtColor(undistorted_image, cv2.COLOR_BGR2RGB),
                   cv2.cvtColor(warped, cv2.COLOR_BGR2RGB), 255 * mask, search_image,
@@ -103,7 +121,12 @@ def find_lane_lines_in_videos_simple():
 
     preprocessor = car.processing.ImagePreprocessor(car.config.calibration_pickle_path, parameters, warp_matrix)
 
-    video_processor = car.processing.SimpleVideoProcessor(preprocessor, source, destination)
+    statistics_computer = car.processing.LaneStatisticsComputer(
+        image_shape,
+        metres_per_pixel_width=car.config.metres_per_pixel_width,
+        metres_per_pixel_height=car.config.metres_per_pixel_height)
+
+    video_processor = car.processing.SimpleVideoProcessor(preprocessor, statistics_computer, source, destination)
 
     for path in paths:
 

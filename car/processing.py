@@ -350,7 +350,7 @@ class LaneLineFinder:
         update_y_condition = update_ys_map[direction]
 
         # If needed change y so that matching wouldn't lead outside of image coordinates
-        y = np.clip(y, kernel_height, self.image.shape[0])
+        y = np.clip(y, kernel_height, self.image.shape[0] - kernel_height)
 
         while continue_scan_condition(y, kernel_height) is True:
 
@@ -454,11 +454,49 @@ def get_lane_mask(image, lane_equation, warp_matrix):
     return cv2.warpPerspective(mask, warp_matrix, (mask.shape[1], mask.shape[0]))
 
 
+class LaneStatisticsComputer:
+
+    def __init__(self, image_shape, metres_per_pixel_width, metres_per_pixel_height):
+
+        self.image_shape = image_shape
+        self.metres_per_pixel_width = metres_per_pixel_width
+        self.metres_per_pixel_height = metres_per_pixel_height
+
+    def get_line_curvature(self, line_equation):
+
+        y = self.image_shape[0]
+
+        # Line equation coefficients
+        a = line_equation[0]
+        b = line_equation[1]
+
+        first_derivative = (2 * a * y * self.metres_per_pixel_height) + b
+        second_derivative = 2 * a
+
+        radius = np.power(1 + np.square(first_derivative), 3/2) / np.abs(second_derivative)
+        return "{}m radius".format(int(radius))
+
+    def get_lane_displacement(self, left_line_equation, right_line_equation):
+
+        y = self.image_shape[0]
+
+        left_x = (left_line_equation[0] * (y**2)) + (left_line_equation[1] * y) + left_line_equation[2]
+        right_x = (right_line_equation[0] * (y ** 2)) + (right_line_equation[1] * y) + right_line_equation[2]
+
+        lane_center_x = (right_x + left_x) / 2
+        middle_x = self.image_shape[1] / 2
+
+        pixels_displacement = middle_x - lane_center_x
+
+        return "{:.2f} m".format(self.metres_per_pixel_width * pixels_displacement)
+
+
 class SimpleVideoProcessor:
 
-    def __init__(self, preprocessor, source_points, destination_points):
+    def __init__(self, preprocessor, statistics_computer, source_points, destination_points):
 
         self.preprocessor = preprocessor
+        self.statistics_computer = statistics_computer
 
         self.warp_matrix = cv2.getPerspectiveTransform(source_points, destination_points)
         self.unwarp_matrix = cv2.getPerspectiveTransform(destination_points, source_points)
@@ -483,6 +521,19 @@ class SimpleVideoProcessor:
 
             image_with_lanes[left_lane_mask == 1] = (0, 255, 0)
             image_with_lanes[right_lane_mask == 1] = (0, 255, 0)
+
+            left_curvature = self.statistics_computer.get_line_curvature(left_lane_equation)
+            right_curvature = self.statistics_computer.get_line_curvature(right_lane_equation)
+            displacement = self.statistics_computer.get_lane_displacement(left_lane_equation, right_lane_equation)
+
+            cv2.putText(image_with_lanes, "Left lane curvature: {}".format(left_curvature), (100, 80),
+                        fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
+
+            cv2.putText(image_with_lanes, "Right lane curvature: {}".format(right_curvature), (100, 120),
+                        fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
+
+            cv2.putText(image_with_lanes, "Displacement from lane center: {}".format(displacement), (100, 160),
+                        fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
 
             return image_with_lanes
 
