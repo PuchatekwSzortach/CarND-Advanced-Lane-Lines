@@ -454,6 +454,19 @@ def get_lane_mask(image, lane_equation, warp_matrix):
     return cv2.warpPerspective(mask, warp_matrix, (mask.shape[1], mask.shape[0]))
 
 
+class LaneStatisticsComputer:
+
+    def __init__(self, image):
+
+        self.image = image
+
+    def get_line_curvature(self, line_equation):
+
+        return "0m radius"
+
+
+
+
 class SimpleVideoProcessor:
 
     def __init__(self, preprocessor, source_points, destination_points):
