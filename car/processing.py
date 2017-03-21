@@ -476,6 +476,20 @@ class LaneStatisticsComputer:
         radius = np.power(1 + np.square(first_derivative), 3/2) / np.abs(second_derivative)
         return "{}m radius".format(int(radius))
 
+    def get_lane_displacement(self, left_line_equation, right_line_equation):
+
+        y = self.image_shape[0]
+
+        left_x = (left_line_equation[0] * (y**2)) + (left_line_equation[1] * y) + left_line_equation[2]
+        right_x = (right_line_equation[0] * (y ** 2)) + (right_line_equation[1] * y) + right_line_equation[2]
+
+        lane_center_x = (right_x + left_x) / 2
+        middle_x = self.image_shape[1] / 2
+
+        pixels_displacement = middle_x - lane_center_x
+
+        return "{:.2f} m".format(self.metres_per_pixel_width * pixels_displacement)
+
 
 class SimpleVideoProcessor:
 
@@ -510,11 +524,15 @@ class SimpleVideoProcessor:
 
             left_curvature = self.statistics_computer.get_line_curvature(left_lane_equation)
             right_curvature = self.statistics_computer.get_line_curvature(right_lane_equation)
+            displacement = self.statistics_computer.get_lane_displacement(left_lane_equation, right_lane_equation)
 
             cv2.putText(image_with_lanes, "Left lane curvature: {}".format(left_curvature), (100, 80),
                         fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
 
             cv2.putText(image_with_lanes, "Right lane curvature: {}".format(right_curvature), (100, 120),
+                        fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
+
+            cv2.putText(image_with_lanes, "Displacement from lane center: {}".format(displacement), (100, 160),
                         fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
 
             return image_with_lanes

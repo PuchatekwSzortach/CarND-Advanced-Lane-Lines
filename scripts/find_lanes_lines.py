@@ -78,11 +78,15 @@ def find_lane_lines_in_test_images(logger):
 
         left_curvature = statistics_computer.get_line_curvature(left_lane_equation)
         right_curvature = statistics_computer.get_line_curvature(right_lane_equation)
+        displacement = statistics_computer.get_lane_displacement(left_lane_equation, right_lane_equation)
 
         cv2.putText(image_with_lanes, "Left lane curvature: {}".format(left_curvature), (100, 80),
                     fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
 
         cv2.putText(image_with_lanes, "Right lane curvature: {}".format(right_curvature), (100, 120),
+                    fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
+
+        cv2.putText(image_with_lanes, "Displacement from lane center: {}".format(displacement), (100, 160),
                     fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(0, 255, 0))
 
         images = [cv2.cvtColor(undistorted_image, cv2.COLOR_BGR2RGB),
@@ -170,8 +174,8 @@ def main():
 
     logger = car.utilities.get_logger(car.config.log_path)
 
-    # find_lane_lines_in_test_images(logger)
-    find_lane_lines_in_videos_simple()
+    find_lane_lines_in_test_images(logger)
+    # find_lane_lines_in_videos_simple()
     #
     # # get_additional_test_frames(logger)
 
