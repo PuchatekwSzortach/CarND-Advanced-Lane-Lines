@@ -300,10 +300,10 @@ class LaneLineFinder:
         self.kernel_width = 30
         self.kernel_height = 20
 
-    def get_lane_starting_coordinates(self, kernel_width, kernel_height):
+    def get_lane_starting_coordinates(self):
 
         # Compute vertical histogram to find x with largest response
-        kernel = np.ones((self.image.shape[0], kernel_width))
+        kernel = np.ones((self.image.shape[0], self.kernel_width))
 
         histogram = scipy.signal.convolve2d(self.image, kernel, mode='valid').squeeze().astype(np.int32)
         peak = np.argmax(histogram)
@@ -311,8 +311,8 @@ class LaneLineFinder:
         x = peak + (kernel.shape[1] // 2)
 
         # For selected x compute y that has most white pixels
-        column_image = self.image[:, x - (kernel_width//2): x + (kernel_width//2)]
-        kernel = np.ones((kernel_height, column_image.shape[1]))
+        column_image = self.image[:, x - (self.kernel_width//2): x + (self.kernel_width//2)]
+        kernel = np.ones((self.kernel_height, column_image.shape[1]))
 
         histogram = scipy.signal.convolve2d(column_image, kernel, mode='valid').squeeze().astype(np.int32)
         peak = np.argmax(histogram)
@@ -321,15 +321,15 @@ class LaneLineFinder:
 
         return x, y
 
-    def scan_image_for_line_candidates(self, x, y, kernel_width, kernel_height, direction):
+    def scan_image_for_line_candidates(self, x, y, direction):
         """
         Scan image above starting points for lane candidates
         :return: tuple (left area border, best hit, right area border), each element of the tuple is a list of points
         """
 
-        kernel = np.ones((kernel_height, kernel_width))
+        kernel = np.ones((self.kernel_height, self.kernel_width))
 
-        original_half_search_width = kernel_width
+        original_half_search_width = self.kernel_width
         current_half_search_width = original_half_search_width
 
         left_border_points = []
@@ -351,9 +351,9 @@ class LaneLineFinder:
         update_y_condition = update_ys_map[direction]
 
         # If needed change y so that matching wouldn't lead outside of image coordinates
-        y = np.clip(y, kernel_height, self.image.shape[0] - kernel_height)
+        y = np.clip(y, self.kernel_height, self.image.shape[0] - self.kernel_height)
 
-        while continue_scan_condition(y, kernel_height) is True:
+        while continue_scan_condition(y, self.kernel_height) is True:
 
             left_band_limit = x - current_half_search_width
             right_band_limit = x + current_half_search_width
@@ -361,7 +361,7 @@ class LaneLineFinder:
             left_border_points.append([left_band_limit, y])
             right_border_points.append([right_band_limit, y])
 
-            candidate_band = self.image[y - kernel_height:y, left_band_limit: right_band_limit]
+            candidate_band = self.image[y - self.kernel_height:y, left_band_limit: right_band_limit]
 
             # print("y, x is : {}, {}".format(y, x))
             # print("Image shape is: {}".format(self.image.shape))
@@ -373,7 +373,7 @@ class LaneLineFinder:
 
             if max_response > 100:
 
-                x = left_band_limit + np.argmax(response) + (kernel_width // 2)
+                x = left_band_limit + np.argmax(response) + (self.kernel_width // 2)
                 candidate_points.append([x, y])
 
                 current_half_search_width = original_half_search_width
@@ -382,13 +382,13 @@ class LaneLineFinder:
 
                 current_half_search_width = 2 * original_half_search_width
 
-            y = update_y_condition(y, kernel_height)
+            y = update_y_condition(y, self.kernel_height)
 
         return left_border_points, candidate_points, right_border_points
 
-    def get_lane_search_image(self):
+    def get_lane_search_image_without_prior_knowledge(self):
 
-        start_x, start_y = self.get_lane_starting_coordinates(self.kernel_width, self.kernel_height)
+        start_x, start_y = self.get_lane_starting_coordinates()
 
         search_image = np.zeros(shape=(self.image.shape + (3,)))
         search_image[:, :, 0] = 255 * self.image
@@ -398,12 +398,10 @@ class LaneLineFinder:
 
         # Scan through image for lane lines
         upper_left_search_border_points, upper_center_points, upper_right_search_border_points = \
-            self.scan_image_for_line_candidates(
-                start_x, start_y, self.kernel_width, self.kernel_height, direction="up")
+            self.scan_image_for_line_candidates(start_x, start_y, direction="up")
 
         lower_left_search_border_points, lower_center_points, lower_right_search_border_points = \
-            self.scan_image_for_line_candidates(
-                start_x, start_y, self.kernel_width, self.kernel_height, direction="down")
+            self.scan_image_for_line_candidates(start_x, start_y, direction="down")
 
         # Draw search area and best fit points
         cv2.polylines(search_image,
@@ -422,16 +420,14 @@ class LaneLineFinder:
 
     def get_lane_equation_without_prior_knowledge(self):
 
-        start_x, start_y = self.get_lane_starting_coordinates(self.kernel_width, self.kernel_height)
+        start_x, start_y = self.get_lane_starting_coordinates()
 
         # Scan through image for lane lines
         _, upper_center_points, _ = \
-            self.scan_image_for_line_candidates(
-                start_x, start_y, self.kernel_width, self.kernel_height, direction="up")
+            self.scan_image_for_line_candidates(start_x, start_y, direction="up")
 
         _, lower_center_points, _ = \
-            self.scan_image_for_line_candidates(
-                start_x, start_y, self.kernel_width, self.kernel_height, direction="down")
+            self.scan_image_for_line_candidates(start_x, start_y, direction="down")
 
         center_points = np.array(list(reversed(lower_center_points)) + upper_center_points)
 

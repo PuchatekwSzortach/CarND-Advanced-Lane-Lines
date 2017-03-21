@@ -58,8 +58,8 @@ def find_lane_lines_in_test_images(logger):
         left_finder = car.processing.LaneLineFinder(mask[:, :mask.shape[1] // 2], offset=0)
         right_finder = car.processing.LaneLineFinder(mask[:, (mask.shape[1] // 2):], offset=mask.shape[1] // 2)
 
-        left_search_image = left_finder.get_lane_search_image()
-        right_search_image = right_finder.get_lane_search_image()
+        left_search_image = left_finder.get_lane_search_image_without_prior_knowledge()
+        right_search_image = right_finder.get_lane_search_image_without_prior_knowledge()
 
         search_image = np.zeros_like(image)
         search_image[:, :mask.shape[1] // 2] = left_search_image
