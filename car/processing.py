@@ -322,7 +322,7 @@ class LaneLineFinder:
 
         return x, y
 
-    def scan_image_for_line_candidates(self, x, y, direction):
+    def scan_image_for_line_candidates_without_prior_knowledge(self, x, y, direction):
         """
         Scan image above starting points for lane candidates
         :return: tuple (left area border, best hit, right area border), each element of the tuple is a list of points
@@ -364,11 +364,6 @@ class LaneLineFinder:
 
             candidate_band = self.image[y - self.kernel_height:y, left_band_limit: right_band_limit]
 
-            # print("y, x is : {}, {}".format(y, x))
-            # print("Image shape is: {}".format(self.image.shape))
-            # print("Band shape {}".format(candidate_band.shape))
-            # print("Left band limit, right band limit: {}, {}".format(left_band_limit, right_band_limit))
-
             response = scipy.signal.correlate2d(candidate_band, kernel, mode='valid').squeeze()
             max_response = np.max(response)
 
@@ -387,6 +382,46 @@ class LaneLineFinder:
 
         return left_border_points, candidate_points, right_border_points
 
+    def scan_image_for_line_candidates_using_prior_knowledge(self, recent_lane_equations):
+        """
+        Scan image above starting points for lane candidates
+        :return: tuple (left area border, best hit, right area border), each element of the tuple is a list of points
+        """
+
+        kernel = np.ones((self.kernel_height, self.kernel_width))
+
+        half_search_width = self.kernel_width
+
+        left_border_points = []
+        candidate_points = []
+        right_border_points = []
+
+        # If needed change y so that matching wouldn't lead outside of image coordinates
+        y = self.kernel_height
+
+        while y < self.image.shape[0]:
+
+            old_x_center = self.get_x(recent_lane_equations[-1], y) - self.offset
+            left_band_limit = old_x_center - half_search_width
+            right_band_limit = old_x_center + half_search_width
+
+            left_border_points.append([left_band_limit, y])
+            right_border_points.append([right_band_limit, y])
+
+            candidate_band = self.image[y - self.kernel_height:y, left_band_limit: right_band_limit]
+
+            response = scipy.signal.correlate2d(candidate_band, kernel, mode='valid').squeeze()
+            max_response = np.max(response)
+
+            if max_response > 100:
+
+                x = left_band_limit + np.argmax(response) + (self.kernel_width // 2)
+                candidate_points.append([x, y])
+
+            y += self.kernel_height
+
+        return left_border_points, candidate_points, right_border_points
+
     def get_lane_search_image_without_prior_knowledge(self):
 
         start_x, start_y = self.get_lane_starting_coordinates()
@@ -399,10 +434,10 @@ class LaneLineFinder:
 
         # Scan through image for lane lines
         upper_left_search_border_points, upper_center_points, upper_right_search_border_points = \
-            self.scan_image_for_line_candidates(start_x, start_y, direction="up")
+            self.scan_image_for_line_candidates_without_prior_knowledge(start_x, start_y, direction="up")
 
         lower_left_search_border_points, lower_center_points, lower_right_search_border_points = \
-            self.scan_image_for_line_candidates(start_x, start_y, direction="down")
+            self.scan_image_for_line_candidates_without_prior_knowledge(start_x, start_y, direction="down")
 
         # Draw search area and best fit points
         cv2.polylines(search_image,
@@ -425,10 +460,10 @@ class LaneLineFinder:
 
         # Scan through image for lane lines
         _, upper_center_points, _ = \
-            self.scan_image_for_line_candidates(start_x, start_y, direction="up")
+            self.scan_image_for_line_candidates_without_prior_knowledge(start_x, start_y, direction="up")
 
         _, lower_center_points, _ = \
-            self.scan_image_for_line_candidates(start_x, start_y, direction="down")
+            self.scan_image_for_line_candidates_without_prior_knowledge(start_x, start_y, direction="down")
 
         center_points = np.array(list(reversed(lower_center_points)) + upper_center_points)
 
@@ -437,44 +472,49 @@ class LaneLineFinder:
 
         return np.polyfit(center_points[:, 1], center_points[:, 0] + self.offset, deg=2)
 
+    def get_lane_search_image_using_prior_knowledge(self, recent_lane_equations):
+
+        search_image = np.zeros(shape=(self.image.shape + (3,)))
+        search_image[:, :, 0] = 255 * self.image
+
+        # Scan through image for lane lines
+        left_search_border_points, center_points, right_search_border_points = \
+            self.scan_image_for_line_candidates_using_prior_knowledge(recent_lane_equations)
+
+        # Draw search area and best fit points
+        cv2.polylines(search_image,
+                      np.int32([left_search_border_points]),
+                      isClosed=False, color=(0, 0, 200), thickness=4)
+
+        cv2.polylines(search_image,
+                      np.int32([right_search_border_points]),
+                      isClosed=False, color=(0, 0, 200), thickness=4)
+
+        cv2.polylines(search_image,
+                      np.int32([center_points]),
+                      isClosed=False, color=(0, 200, 0), thickness=4)
+
+        return search_image
+
     def get_lane_equation_using_prior_knowledge(self, recent_lane_equations, logger):
 
-        kernel = np.ones((self.kernel_height, self.kernel_width))
+        # Scan through image for lane lines
+        left_search_border_points, center_points, right_search_border_points = \
+            self.scan_image_for_line_candidates_using_prior_knowledge(recent_lane_equations)
 
-        candidate_points = []
+        if len(center_points) == 0 and logger is not None:
 
-        y = self.kernel_height
-        half_search_width = self.kernel_width
+            search_image = self.get_lane_search_image_using_prior_knowledge(recent_lane_equations)
 
-        while y < self.image.shape[0]:
-
-            old_x_center = self.get_x(recent_lane_equations[-1], y)
-            left_band_limit = old_x_center - half_search_width
-            right_band_limit = old_x_center + half_search_width
-
-            candidate_band = self.image[y - self.kernel_height:y, left_band_limit: right_band_limit]
-
-            response = scipy.signal.correlate2d(candidate_band, kernel, mode='valid').squeeze()
-            max_response = np.max(response)
-
-            if max_response > 100:
-
-                x = left_band_limit + np.argmax(response) + (self.kernel_width // 2)
-                candidate_points.append([x, y])
-
-            y += self.kernel_height
-
-        if len(candidate_points) == 0 and logger is not None:
-
-            images = [255 * self.image]
+            images = [255 * self.image, search_image]
 
             logger.info(vlogging.VisualRecord(
                 "Failed get_lane_equation_using_prior_knowledge()", images, str(self.image.shape)))
 
             raise LaneSearchError()
 
-        candidate_points = np.array(candidate_points)
-        return np.polyfit(candidate_points[:, 1], candidate_points[:, 0] + self.offset, deg=2)
+        center_points = np.array(center_points)
+        return np.polyfit(center_points[:, 1], center_points[:, 0] + self.offset, deg=2)
 
     def get_lane_equation(self, recent_lane_equations=(), logger=None):
 

@@ -172,8 +172,7 @@ def find_lane_lines_in_videos_smooth(logger):
 
     for path in paths:
 
-        print("We are only processing a subclip!".upper())
-        clip = moviepy.editor.VideoFileClip(path).subclip(20, 27)
+        clip = moviepy.editor.VideoFileClip(path)
 
         processed_clip = clip.fl_image(video_processor.get_image_with_lanes)
 
