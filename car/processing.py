@@ -459,12 +459,22 @@ class LaneStatisticsComputer:
     def __init__(self, image):
 
         self.image = image
+        self.metres_per_pixel_width = 3.7/1000
+        self.metres_per_pixel_height = 30/300
 
     def get_line_curvature(self, line_equation):
 
-        return "0m radius"
+        y = self.image.shape[0]
 
+        # Line equation coefficients
+        a = line_equation[0]
+        b = line_equation[1]
 
+        first_derivative = (2 * a * y * self.metres_per_pixel_height) + b
+        second_derivative = 2 * a
+
+        radius = np.power(1 + np.square(first_derivative), 3/2) / np.abs(second_derivative)
+        return "{}m radius".format(int(radius))
 
 
 class SimpleVideoProcessor:
