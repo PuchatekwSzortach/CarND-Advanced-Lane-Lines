@@ -613,7 +613,7 @@ class LaneStatisticsComputer:
         lane_center_x = (right_x + left_x) / 2
         middle_x = self.image_shape[1] / 2
 
-        pixels_displacement = middle_x - lane_center_x
+        pixels_displacement = abs(middle_x - lane_center_x)
 
         return "{:.2f} m".format(self.metres_per_pixel_width * pixels_displacement)
 
