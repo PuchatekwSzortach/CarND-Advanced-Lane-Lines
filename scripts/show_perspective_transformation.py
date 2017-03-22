@@ -29,6 +29,7 @@ def show_tranformed_test_images(logger):
         warped = cv2.warpPerspective(image, matrix, (image.shape[1], image.shape[0]))
 
         images = [image, warped]
+        images = [cv2.cvtColor(image, cv2.COLOR_BGR2RGB) for image in images]
 
         target_size = (int(image.shape[1] / 2.5), int(image.shape[0] / 2.5))
         logger.info(vlogging.VisualRecord("Image, processed",

@@ -17,8 +17,8 @@ import car.processing
 
 def show_preprocessing_pipeline_for_test_images(logger):
 
-    # paths = glob.glob(os.path.join(car.config.test_images_directory, "*.jpg"))
-    paths = glob.glob(os.path.join(car.config.additional_test_images_directory, "*.jpg"))
+    paths = glob.glob(os.path.join(car.config.test_images_directory, "*.jpg"))
+    # paths = glob.glob(os.path.join(car.config.additional_test_images_directory, "*.jpg"))
 
     parameters = {
         "cropping_margins": [[350, 50], [100, 100]],
@@ -40,6 +40,7 @@ def show_preprocessing_pipeline_for_test_images(logger):
     for path in paths:
 
         image = car.utilities.get_image(path)
+        undistorted_image = preprocessor.get_undistorted_image(image)
 
         image_with_warp_mask = preprocessor.get_undistorted_image(image)
         cv2.polylines(image_with_warp_mask, np.int32([source]), isClosed=True, color=(0, 0, 255), thickness=4)
@@ -48,6 +49,8 @@ def show_preprocessing_pipeline_for_test_images(logger):
         processed = preprocessor.get_preprocessed_image(image)
 
         images = [
+            cv2.cvtColor(image, cv2.COLOR_RGB2BGR),
+            cv2.cvtColor(undistorted_image, cv2.COLOR_RGB2BGR),
             cv2.cvtColor(image_with_warp_mask, cv2.COLOR_RGB2BGR),
             cv2.cvtColor(warped, cv2.COLOR_RGB2BGR), 255 * processed]
 
@@ -178,9 +181,9 @@ def get_additional_test_frames(logger):
 def main():
 
     logger = car.utilities.get_logger(car.config.log_path)
-    # show_preprocessing_pipeline_for_test_images(logger)
+    show_preprocessing_pipeline_for_test_images(logger)
 
-    show_preprocessing_pipeline_for_test_videos()
+    # show_preprocessing_pipeline_for_test_videos()
     # get_additional_test_frames(logger)
 
 
