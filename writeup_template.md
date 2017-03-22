@@ -152,7 +152,7 @@ Finding lanes is implemented in `script/find_lanes_lines.py` in function `find_l
 
 ####1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
 
-Here's a [link to my video result](./project_video.mp4)
+Here's a [link to my video result](https://youtu.be/w2bugy8vd2g)
 
 ---
 
@@ -160,5 +160,10 @@ Here's a [link to my video result](./project_video.mp4)
 
 ####1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+By far my largest problem was forgetting that while OpenCV reads images in BGR order, moviepy does so in RGB order. This lead to some head scratching why my detection works well in images, but fails in video. I'm probably not the only one who got bitten by this.
 
+On a more serious note, the following assumptions in my pipeline are likely to break in more generic settings:
+- aggressive cropping mask - it helps to remove a lot of pixels that can't represent lanes in project video, but would also remove road segments on sharp turns
+- using a single kernel for lines detection - my kernel only looks for straing lines. A more flexible approach would use a family of kernels for differt line angles. This would help pick up lines better, as well as steer search region for next step in correct direction
+- not examining nature of identified lines - in challenge video a vertical line formed by a connection between two different road surfaces would be picked up by x-gradient mask. While it's difficult to make robust assumptions in colorspaces, examining colors of positive pixels returned by x-gradient mask might help to remove some wrong candidates, since lane lines should be white or yellow, not e.g. different shades of gray
+- searching for each lane in only one half of the image - for simplicity my pipeline only searches for left lane line in left half of image and right lane line in right half of image. This could break on sharp turns and a more robust approach would allow lane lines to cross over to other half ot the image
