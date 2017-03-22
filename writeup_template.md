@@ -27,6 +27,10 @@ The goals / steps of this project are the following:
 [test_image_undistorted]: ./writeup_images/test_image_undistorted.jpg
 [test_image_with_warp_mask]: ./writeup_images/test_image_with_warp_mask.jpg
 [test_image_warped]: ./writeup_images/test_image_warped.jpg
+[image_with_shadow]: ./writeup_images/image_with_shadow.jpeg
+[image_with_shadow_removed]: ./writeup_images/image_with_shadow_removed.jpeg
+[image_with_shadow_mask]: ./writeup_images/image_with_shadow_mask.jpeg
+[image_with_shadow_removed_mask]: ./writeup_images/image_with_shadow_removed_mask.jpeg
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
 ###Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
@@ -77,14 +81,27 @@ Source and destination points for warping are specified in `car.processing.get_p
 
 Warped image is computed with `car.processing.ImageProcessor::get_warped_image()` on line 111, which makes a simple call to `cv2.warpPerspective()`.
 
-The code for my perspective transform includes a function called `warper()`, which appears in lines 1 through 8 in the file `example.py` (output_images/examples/example.py) (or, for example, in the 3rd code cell of the IPython notebook).  The `warper()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
+####3. Shadow removal
 
-####3. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
+Recongnizing that shadow areas affected my binary mask images (shown later), I added a simple shadow removal method based on a paper *"A robust approach for road detection with shadow removal technique"* by Salim, Cheng and Degui. For implementation details please refer to the paper, but a quick intuition is that shadows are areas that have high saturation (thus lively colors), but low value - so areas of lively colors that don't appear lively in the image. Once shadow areas are identified, shadows can be removed (or at least their impact attenuated) by making their moments closer to moments of surrounding non-shadow areas.
+
+In practice above method works well on small to medium size shadow patches and proves useful in removing some of the shadows that happen to fall within car lanes.
+
+While I perform shadow removal on warped images (`car.processing.ImageProcessor.get_preprocessed_image()`, line 125, below I present a sample unwarped image, first in original form then with shadow removed, followed by a saturation-based mask for both cases.
+
+![image_with_shadow] 
+![image_with_shadow_removed]
+![image_with_shadow_mask]
+![image_with_shadow_removed_mask]
+
+As can be seen most of shadow right in front of car hood was removed, which simplifies further detection stages. A careful reader would note that black car in right lane also got removed from saturation mask - this isn't a problem in our scenario, but it highlights that above shadow removal method shoud be used with care.
+
+####4. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
 I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
 
 ![alt text][image3]
 
-####4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
+####5. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
 Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
 
