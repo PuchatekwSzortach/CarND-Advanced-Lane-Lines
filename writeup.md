@@ -48,7 +48,7 @@ The goals / steps of this project are the following:
 
 Code for camera calibration is contained in `script/calibrate.camera.py` in function `compute_camera_calibration()` starting on line `19`. First a 3D grid of (x, y, z) size of (9, 6, 1) is prepared to represent true coordinates of chessboard square corners, called object points below. Z-value is set to 0 for all entries, since all points lie on the same z-plane.
 
-Then `cv2.findChessboardCorners()` is used to find corners of chessboard corners in calibration images.
+Then `cv2.findChessboardCorners()` is used to find chessboard corners in calibration images.
 
 Calibration is performed with `cv2.calibrateCamera()` based on object space and image space points pairs and resulting camera matrix and distortion coefficients are stored for later use.
 
@@ -64,19 +64,19 @@ As a first step of the pipeline I compute undistorted image based on previously 
 
 ![test_image] ![test_image_undistorted]
 
-As can be seen undistortion doesn't affect image too much. This is quite expected, distortion effects are only significant around image edges (more specifically, lense edges), but our are of interest is dead in the middle of the camera. Pay attention to car hood though, you can see subtle changes to its shape between original and undistorted image.
+As can be seen undistortion doesn't affect image too much. This is as expected, since distortion effects are only significant around image edges (more specifically, lense edges), and pronounced only when object is close to the lens, but our area of interest is right in front of the camera and spans a significant distance. Pay attention to car hood though, you can see subtle changes to its shape between original and undistorted image.
 
-Undistorted image was computed with `car.processing.ImageProcessor::get_undistorted_image()`, which perfoms a simple call to `cv2.undistort()`.
+Undistorted image was computed with `car.processing.ImageProcessor::get_undistorted_image()`, which makes a simple call to `cv2.undistort()`.
 
 
 ####2. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
-As a second step of my preprocessing pipeline I warped image so as to give a bird-eye view on area likely occupied by the lane. This has several advantages:  
-- making lane lines appear more straight even when they are turning
+As a second step of my preprocessing pipeline I warped image so as to give a bird-eye view of area likely occupied by the lane. This has several advantages:  
+- making lane lines appear more straight even around turns  
 - making lane lines width more uniform across whole image  
 - making it easier to mask out areas outside of the lane
 
-Below is a sample image with area to be warped marked in original coordinates, as well as the same image after warping
+Below is a sample image with source points used for warpind marked, as well as the same image after warping.
 
 ![test_image_with_warp_mask] ![test_image_warped]
 
@@ -86,9 +86,9 @@ Warped image is computed with `car.processing.ImageProcessor::get_warped_image()
 
 ####3. Shadow removal
 
-Recongnizing that shadow areas affected my binary mask images (shown later), I added a simple shadow removal method based on a paper *"A robust approach for road detection with shadow removal technique"* by Salim, Cheng and Degui. For implementation details please refer to the paper, but a quick intuition is that shadows are areas that have high saturation (thus lively colors), but low value - so areas of lively colors that don't appear lively in the image. Once shadow areas are identified, shadows can be removed (or at least their impact attenuated) by making their moments closer to moments of surrounding non-shadow areas.
+Recongnizing that shadow areas affected my binary mask images (shown later), I added a simple shadow removal method based on a paper *"A robust approach for road detection with shadow removal technique"* by Salim, Cheng and Degui. For implementation details please refer to the paper, but a quick intuition is that shadows are areas that have lively colors (thus high saturation in HSV space), but appear dark (thus have low value in HSV space). Once shadow areas are identified, shadows can be removed (or at least their impact attenuated) by making their image statistics closer to these of surrounding non-shadow areas.
 
-In practice above method works well on small to medium size shadow patches and proves useful in removing some of the shadows that happen to fall within car lanes.
+In practice above method works well on small to medium size shadow patches and proves useful in removing some of shadows that happen to fall within car lanes.
 
 While I perform shadow removal on warped images (`car.processing.ImageProcessor.get_preprocessed_image()`, line 125, below I present a sample unwarped image, first in original form then with shadow removed, followed by a saturation-based mask for both cases.
 
@@ -101,7 +101,7 @@ As can be seen most of shadow right in front of car hood was removed, which simp
 
 ####4. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
 
-Once shadows are removed from my warped image, I compute a simple binary mask as an OR operation of saturation and x_gradient based mask. This computation is done in `car.processing.ImageProcessor.get_preprocessed_image()` on lines 127~130. Below I present a sample masked image:
+Once shadows are removed from my warped image, I compute a simple binary mask as an OR operation of saturation and x_gradient based mask. This computation is done in `car.processing.ImageProcessor.get_preprocessed_image()` on lines 127~130. Below is a sample input and output (also please note positive effect of shadow removal):
 
 ![test_image_warped_with_shadows]
 ![test_image_warped_with_shadows_mask]
@@ -114,27 +114,27 @@ Image below is the mask presented in previous section after cropping and erosion
 
 ![test_image_warped_with_shadows_cropped_dilated_mask]
 
-It should be noted that the cropping stage is the most restrictive assumption in the whole processing pipeline. Applied cropping mask works very well at removing unwanted pixels in `project_video.mp4`, but has a potential to mask out important image features on roads that have much sharper turns than in above footage, thus degrading overall performance.
+It should be noted that the cropping stage is the most restrictive assumption in the whole processing pipeline. Applied cropping mask works very well at removing unwanted pixels in `project_video.mp4`, but has a potential to mask out lane lines on roadswith sharper turns than in above footage, thus degrading overall performance.
 
 ####6. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
 Class `car.processing.LaneLineFinder`, found on line 291, is responsible for finding lane lines. It exposes two methods, `get_lane_equation_without_prior_knowledge()` and `get_lane_equation_using_prior_knowledge(recent_lane_equations)`. 
 
-When searching for lane line from a scratch, `LaneFinder` first computes a histogram of number of non-zero pixels in each column and identifies column with largest response as likely to containing lane. A similar search over a small band of x-values within that column reveals our starting point. This computation is performed in `car.processing.LaneLineFinder.get_lane_starting_coordinates()` on line 304.
+When searching for lane line from a scratch, `LaneFinder` first computes a histogram of number of non-zero pixels in each column and identifies column with largest response as likely to contain lane line. A similar search over a small band of x-values within that column reveals a starting point for extensive lane line search. This computation is performed in `car.processing.LaneLineFinder.get_lane_starting_coordinates()` on line 304.
 
-Once starting point is identified, search is done in two directions - up and down. In each case a correlation with a small kernel made of 1s is made to identify coordinate with largerst response - deemed to be the most likely lane center candidate. At each step once candidate coordinate is identified, algorithm moves (up or down depending on direction) and performs another search within a band centered on y-coordinate last identified lane candidate, since lanes shoud be continuous.
+Once starting point is identified, search is done in two directions - up and down. In each case a correlation with a small kernel made of 1s is made to identify coordinate with largerst response - deemed to be the most likely lane center candidate. At each step once candidate coordinate is identified, algorithm moves (up or down depending on direction) and performs another search within a band centered on y-coordinate of last identified lane candidate, since lines shoud be continuous.
 
-Lane center candidate is identified only if kernel response was high enough - this prevents adding candidate points in "blank" areas between dashed line segments.
+Line center candidate is identified only if kernel response was high enough - this prevents adding candidate points in "blank" areas between dashed line segments.
 
-While search area is kept relatively narrow (about tripple of expected lane line width), if a very low response was obtained at a given search step, search area width is doubled until a high response is obtained again. This helps to tackle larger lane curvature.
+While search area is kept relatively narrow (about double to triple of expected lane line width), if a very low response was obtained at a given search step, search area width is doubled until a high response is obtained again. This helps to tackle lines with large curvature.
 
-Above algorithm is implemented in `car.processing.LaneLineFinder.scan_image_for_line_candidates_without_prior_knowledge()` on line 325. `scan_image_for_line_candidates_using_prior_knowledge()` is very similar, except it uses last known lane equation to constrain search band to areas around it.
+Above algorithm is implemented in `car.processing.LaneLineFinder.scan_image_for_line_candidates_without_prior_knowledge()` on line 325. `scan_image_for_line_candidates_using_prior_knowledge()` is very similar, except it uses last known lane equation to constrain search band.
 
-Image below presents search result for two lanes lines. Green circles represent identified starting points. With right line it can be seen that search area is widened where no good response to lane kernel was found and that found line spans only areas with high response. Please note that while in my code I perform search for left and right lane separately, image below shows both search results in a single image for easier presentation.
+Image below presents search result for two lanes lines. Green circles represent identified starting points. With right line it can be seen that search area is widened where no good response to lane kernel was found and that found line spans only areas with high response. Please note that while in my code I perform search for left and right lane separately, image below shows both search results concatenated in a single image.
 
 ![lane_search]
 
-Once line center points are identified, a simple call to `np.polyfit` identifies lane lines equations. `get_lane_equation_using_prior_knowledge(recent_lane_equations)` returns an average of a lane equations found for a few last frames, which yields more stable results.
+Once line center points are identified, a simple call to `np.polyfit()` identifies lane lines equations. `get_lane_equation_using_prior_knowledge(recent_lane_equations)` returns an average of a line equations found for a few last frames, which yields more stable results than estimates based on a single frame only.
 
 ####7. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
@@ -142,7 +142,7 @@ Radius of curvature and position of vehicle with respect to center are calculate
 
 ####8. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
-Finding lanes is implemented in `script/find_lanes_lines.py` in function `find_lane_lines_in_test_images()` on line 19, which also shows some of the processing stages. Below is a single example of identified lane:
+Finding lanes in images is implemented in `script/find_lanes_lines.py` in function `find_lane_lines_in_test_images()` on line 19, which also shows some of the processing steps. Below is a single example of identified lane:
 
 ![found_lane]
 
@@ -152,7 +152,7 @@ Finding lanes is implemented in `script/find_lanes_lines.py` in function `find_l
 
 ####1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
 
-Here's a [link to my video result](https://youtu.be/w2bugy8vd2g)
+Here's a [link to my video result](https://youtu.be/w2bugy8vd2g). It was created with `find_lane_lines_in_videos_smooth()` function of `script/find_lanes_lines.py`, and most of the heavy lifting is performed by `car.processing.SmoothVideoProcessor` class.
 
 ---
 
@@ -160,10 +160,10 @@ Here's a [link to my video result](https://youtu.be/w2bugy8vd2g)
 
 ####1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-By far my largest problem was forgetting that while OpenCV reads images in BGR order, moviepy does so in RGB order. This lead to some head scratching why my detection works well in images, but fails in video. I'm probably not the only one who got bitten by this.
+By far my largest problem was forgetting that while OpenCV reads images in BGR order, moviepy does so in RGB order. This led to some head scratching why my detection works well in images, but hardly so in video. I'm probably not the only one who got bitten by this difference between OpenCV and moviepy.
 
-On a more serious note, the following assumptions in my pipeline are likely to break in more generic settings:
-- aggressive cropping mask - it helps to remove a lot of pixels that can't represent lanes in project video, but would also remove road segments on sharp turns
-- using a single kernel for lines detection - my kernel only looks for straing lines. A more flexible approach would use a family of kernels for differt line angles. This would help pick up lines better, as well as steer search region for next step in correct direction
-- not examining nature of identified lines - in challenge video a vertical line formed by a connection between two different road surfaces would be picked up by x-gradient mask. While it's difficult to make robust assumptions in colorspaces, examining colors of positive pixels returned by x-gradient mask might help to remove some wrong candidates, since lane lines should be white or yellow, not e.g. different shades of gray
-- searching for each lane in only one half of the image - for simplicity my pipeline only searches for left lane line in left half of image and right lane line in right half of image. This could break on sharp turns and a more robust approach would allow lane lines to cross over to other half ot the image
+The following assumptions in my pipeline are likely to break in more generic settings:  
+- aggressive cropping mask - it helps to remove a lot of pixels that can't represent lanes in project video, but would also remove road segments on sharp turns  
+- using a single kernel for lines detection - my kernel only looks for straing lines. A more flexible approach would use a family of kernels for differt line angles. This would help pick up lines better, as well as steer search region for next step in correct direction  
+- not examining nature of identified lines - in challenge video a vertical line formed by a connection between two different road surfaces gets picked up by x-gradient mask. While it's difficult to make robust assumptions in colorspaces, examining colors of positive pixels returned by x-gradient mask might help to remove some wrong candidates, since lane lines should be white or yellow, not e.g. different shades of gray  
+- searching for each lane line in only one half of the image - for simplicity my pipeline only searches for left lane line in left half of image and right lane line in right half of image. This could break on sharp turns and a more robust approach would allow lane lines to cross over to other half ot the image
