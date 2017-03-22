@@ -14,4 +14,4 @@ video_output_directory = "../../data/advanced_lanes_detection/"
 
 # Based on typical lane dimensions and cropping used in image transformation
 metres_per_pixel_width = 3.7 / 400
-metres_per_pixel_height = 25 / 820
+metres_per_pixel_height = 30 / 820
