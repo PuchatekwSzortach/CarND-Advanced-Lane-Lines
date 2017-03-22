@@ -68,13 +68,10 @@ def find_lane_lines_in_test_images(logger):
         left_lane_equation = left_finder.get_lane_equation()
         right_lane_equation = right_finder.get_lane_equation()
 
-        left_lane_mask = car.processing.get_lane_mask(undistorted_image, left_lane_equation, unwarp_matrix)
-        right_lane_mask = car.processing.get_lane_mask(undistorted_image, right_lane_equation, unwarp_matrix)
-
         image_with_lanes = undistorted_image.copy().astype(np.float32)
 
-        image_with_lanes[left_lane_mask == 1] = (0, 255, 0)
-        image_with_lanes[right_lane_mask == 1] = (0, 255, 0)
+        image_with_lanes = car.processing.draw_lane(
+            image_with_lanes, left_lane_equation, right_lane_equation, unwarp_matrix)
 
         left_curvature = statistics_computer.get_line_curvature(left_lane_equation)
         right_curvature = statistics_computer.get_line_curvature(right_lane_equation)
@@ -94,7 +91,7 @@ def find_lane_lines_in_test_images(logger):
                   cv2.cvtColor(image_with_lanes, cv2.COLOR_BGR2RGB)]
 
         logger.info(vlogging.VisualRecord(
-            "Image, warped, mask, search, lanes", images))
+            "Image, warped, mask, search, lanes", images, fmt='jpg'))
 
     # print("Computation time: {}".format(time.time() - start))
 
@@ -217,9 +214,9 @@ def main():
 
     logger = car.utilities.get_logger(car.config.log_path)
 
-    # find_lane_lines_in_test_images(logger)
+    find_lane_lines_in_test_images(logger)
     # find_lane_lines_in_videos_simple()
-    find_lane_lines_in_videos_smooth(logger)
+    # find_lane_lines_in_videos_smooth(logger)
     #
     # # get_additional_test_frames(logger)
 
