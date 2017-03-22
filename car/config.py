@@ -10,6 +10,8 @@ calibration_images_directory = "./camera_cal/"
 test_images_directory = "./test_images"
 additional_test_images_directory = "./test_images_video_all"
 
+my_car_test_images_directory = "./test_images_my_car"
+
 video_output_directory = "../../data/advanced_lanes_detection/"
 
 # Based on typical lane dimensions and cropping used in image transformation
